@@ -50,7 +50,7 @@ data/docs/llm-providers.md
 data/video|explain/      产物
 ```
 
-开发/正式隔离：`!app.isPackaged` → `%APPDATA%/nailong-dev`。
+开发/正式隔离：开发版 → 项目内 `.userdata`；安装版 → 若存在 `D:/nailong-data` 则用它（本机已迁），否则 userData。
 
 ## 4. 插件系统（核心契约）
 

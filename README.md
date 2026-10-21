@@ -104,6 +104,24 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 
 手机端通过 `ui/bridge-web.js` 实现同一套 `window.nailong` API：会话、画像、设置存 localStorage，聊天直连 DeepSeek（已验证 CORS）。资料导入、讲解页、视频生成仅在桌面端可用。
 
+## 磁盘布局（本机）
+
+- 源码：`D:\个人小项目
+ailong`
+- 开发数据：`D:\个人小项目
+ailong\.userdata`
+- 安装版程序：`D:
+ailong-app`
+- 安装版数据：`D:
+ailong-data`
+- Python 依赖（OCR/SymPy）：`D:
+ailong-tools\py`
+- Android/JDK/Gradle：`D:
+ailong-tools`
+- npm / Electron / electron-builder 缓存：`D:
+ailong-tools`
+- C 盘只保留系统与运行时不可避免的内容。
+
 ## 已知限制
 
 - 同校试卷、学长经验无法自动获取，只能由用户导入。
