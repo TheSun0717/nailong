@@ -1,21 +1,22 @@
 {
   "app": {
-    "version": "1.3.0",
+    "version": "1.4.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.3.0/nailong-Setup-1.3.0.exe",
-    "sha256": "19ccd970bcedcb1a220f8ce04d2a92bdf078d03f2da0548addb8a3b501599b86",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.4.0/nailong-Setup-1.4.0.exe",
+    "sha256": "43d63c4697743d3dc00310cc8eed0dfc54d12027c2bad62f006924885bbab242",
     "notes": {
-      "summary": "插件商店第一版。",
+      "summary": "大模型接入与反馈。",
       "items": [
-        "商店：远程索引、zip 下载、SHA-256 校验、安全解压、安装/更新",
-        "声明式插件命令：第三方插件不执行代码，宿主执行 web.search / ai.ask / notify",
-        "首个商店插件 B站搜索：/bili 关键词",
-        "插件面板新增「商店」标签与「能力工坊」占位",
-        "修复清单缓存导致商店为空"
+        "服务商配置文档（10 家），应用内直接查看",
+        "API 配置助手：问「XX 的 API 怎么配置」直接给步骤",
+        "可配置 API Base + 测试连接（OpenAI 兼容供应商可直接接）",
+        "问题反馈：FormSubmit 直投 2491695554@qq.com，失败回退邮件客户端",
+        "作者微信 FromTheSun0717",
+        "发版校验供应商路径（catalog-status.json）"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.3.0/nailong-Setup-1.3.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.4.0/nailong-Setup-1.4.0.exe"
     ]
   },
   "plugins": [
