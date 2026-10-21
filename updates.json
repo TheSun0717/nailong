@@ -1,24 +1,24 @@
 {
   "app": {
-    "version": "1.9.0",
+    "version": "1.10.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.9.0/nailong-Setup-1.9.0.exe",
-    "sha256": "914632b4dfe083fff3e8f6086b8e165cf1c1b7c2029e237db3fdaccd81b31042",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.10.0/nailong-Setup-1.10.0.exe",
+    "sha256": "482789d18d73d4d6259c8f3901795099b43b16195138038b871b9e690160c2c0",
     "notes": {
-      "summary": "三栏工作台 + 历史记录 + 插件自动路由。",
+      "summary": "工作台、历史、全平台搜索与讲解 v2。",
       "items": [
-        "三栏布局：左工作区、中聊天、右功能栏；底部只留文件与输入",
-        "插件商店改为左侧滑出抽屉",
-        "历史记录：打开中/已归档会话，点击恢复",
-        "搜索插件合并为内置 research-kit（/bili、/xhs）",
-        "插件自动路由：按关键词自动执行",
-        "窗口默认占屏幕 3/5，支持全屏/还原",
-        "学习计划/讲解页/视频保持内置",
-        "采集授权改为平台采集授权；供应商目录移除 Claude"
+        "三栏工作台：文件/历史/作品 + 聊天 + 功能栏；最小化/全屏",
+        "商店左侧抽屉；能力工坊按钮",
+        "历史记录（打开中/归档）；作品库重启可开",
+        "搜索合并 research-kit，新增知乎/豆瓣/贴吧/微博/牛客/CSDN/掘金",
+        "插件自动路由（关键词 + 查询清洗）",
+        "讲解页 v2：结构化解题 + 阅卷校验 + 动画 + SVG",
+        "视频分镜加入 SVG 图示",
+        "多轮上下文 + 图片多模态尝试"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.9.0/nailong-Setup-1.9.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.10.0/nailong-Setup-1.10.0.exe"
     ]
   },
   "plugins": [],
