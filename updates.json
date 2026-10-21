@@ -1,19 +1,20 @@
 {
   "app": {
-    "version": "1.14.0",
+    "version": "1.15.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.14.0/nailong-Setup-1.14.0.exe",
-    "sha256": "64608c98658926b8e68da8ba9f1045a85dd362c86ffff572b4f69fba9909429b",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.15.0/nailong-Setup-1.15.0.exe",
+    "sha256": "3f1cde3bc50764957c3e5f2d45ea4d152399c4db011ddbc3c6692b11ba1ac0af",
     "notes": {
-      "summary": "解题卡缓存与三角形不等式校验。",
+      "summary": "插件任务进度与内置插件更新。",
       "items": [
-        "已校验解题卡持久缓存（30 天），同题 0 token、毫秒级",
-        "三角形不等式校验",
-        "数据与依赖全部位于 D 盘"
+        "插件 host.progress → 聊天进度条",
+        "内置插件随应用版本自动更新",
+        "插件命令按钮预填 /命令",
+        "讲解进度阶段显示"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.14.0/nailong-Setup-1.14.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.15.0/nailong-Setup-1.15.0.exe"
     ]
   },
   "plugins": [],
