@@ -1,0 +1,17 @@
+{
+  "id": "study-kit",
+  "name": "学习资料助手",
+  "version": "1.0.0",
+  "minAppVersion": "1.6.0",
+  "description": "画像 + 知识库 + 学习路径，插件版。",
+  "intro": {
+    "what": "它帮你想清楚一门课怎么学：先看你自己的资料，再排出每周计划。",
+    "how": "在输入框输入 /study 加上你的问题，比如 /study 人工智能数学方法怎么学；也可以 /kb-stats 看资料库。",
+    "whatHappens": "奶龙会给你一份学习计划；/kb-stats 会列出你导入的资料。",
+    "ifFails": "先在设置里填画像、导入资料；还不行就点问题反馈。"
+  },
+  "permissions": ["chat", "kb", "ai", "ui"],
+  "capabilities": ["study.plan"],
+  "firstParty": true,
+  "entry": { "type": "module", "main": "main.js" }
+}

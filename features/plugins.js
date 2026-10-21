@@ -5,7 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const ALLOWED_PERMISSIONS = new Set([
-  'chat', 'kb', 'ai', 'web', 'video', 'ui', 'store', 'notify', 'pet', 'settings', 'cron',
+  'chat', 'kb', 'ai', 'web', 'video', 'teach', 'ui', 'store', 'notify', 'pet', 'settings', 'cron',
 ]);
 const INTRO_FIELDS = ['what', 'how', 'whatHappens', 'ifFails'];
 const ID_RE = /^[a-z0-9][a-z0-9-]{1,40}$/;

@@ -45,6 +45,16 @@ function initPluginHost() {
       notify: (t) => { if (chatWin && !chatWin.isDestroyed()) chatWin.webContents.send('plugin-notify', t); },
       kbSearch: async (q) => kb.search(q, { school: config.profile && config.profile.school, level: config.profile && config.profile.level, limit: 6 }),
       kbAdd: async (text, meta) => kb.addText(meta && meta.name, text, meta || {}),
+      kbList: async () => kb.list(),
+      kbProfile: async () => config.profile || {},
+      teachExplain: async (topic) => {
+        const html = await teach.generate(topic, config);
+        fs.mkdirSync(explainDir, { recursive: true });
+        const file = path.join(explainDir, `explain-${Date.now()}.html`);
+        fs.writeFileSync(file, html, 'utf8');
+        openExplainer(file);
+        return { ok: true, path: file };
+      },
       aiAsk: async (p) => ({ text: await ai.askDeepSeek(p, config) }),
       openExternal: (u) => { if (/^https?:\/\//i.test(u)) shell.openExternal(u); },
       webSearch: async (platform, q) => (String(platform).toLowerCase() === 'bilibili' ? bili.search(q) : []),
@@ -833,6 +843,23 @@ app.whenReady().then(() => {
   createPet();
   createTray();
   initPluginHost();
+  if (process.argv.includes('--studyplugin')) {
+    (async () => {
+      try {
+        const st = pluginHost.status();
+        console.log('[studyplugin] commands=', st.commands.map((c) => c.name).join(','));
+        const kb = await pluginHost.runCommand('kb-stats', '');
+        console.log('[studyplugin] kb-stats ok=', kb.ok, (kb.result && kb.result.text) || '');
+        const r = await pluginHost.runCommand('study', '人工智能数学方法怎么学');
+        console.log('[studyplugin] study ok=', r.ok, JSON.stringify(r).slice(0, 400));
+        app.exit(r.ok ? 0 : 1);
+      } catch (e) {
+        console.error('[studyplugin] ERR', e.message);
+        app.exit(2);
+      }
+    })();
+    return;
+  }
   if (process.argv.includes('--workshoptest')) {
     (async () => {
       try {

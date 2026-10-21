@@ -129,6 +129,8 @@ function createHost(manifest, dir) {
     kb: {
       async search(query) { need('kb'); return ctx.caps.kbSearch(String(query ?? '')); },
       async add(text, meta) { need('kb'); return ctx.caps.kbAdd(String(text ?? ''), meta || {}); },
+      async list() { need('kb'); return ctx.caps.kbList(); },
+      async profile() { need('kb'); return ctx.caps.kbProfile(); },
     },
     ai: {
       async ask(prompt) { need('ai'); return ctx.caps.aiAsk(String(prompt ?? '')); },
@@ -139,6 +141,9 @@ function createHost(manifest, dir) {
     },
     video: {
       async make(topic) { need('video'); return ctx.caps.videoMake(String(topic ?? '')); },
+    },
+    teach: {
+      async explain(topic) { need('teach'); return ctx.caps.teachExplain(String(topic ?? '')); },
     },
     store: {
       async install(id) { need('store'); return ctx.caps.storeInstall(String(id)); },
