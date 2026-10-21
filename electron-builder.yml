@@ -1,0 +1,32 @@
+appId: com.nailong.pet
+productName: 奶龙
+directories:
+  output: dist
+
+files:
+  - main.js
+  - ai.js
+  - preload.js
+  - features/**
+  - data/**
+  - ui/**
+  - package.json
+
+# assets 不打进 asar，运行时从 process.resourcesPath 读取（视频/图片需要）
+extraResources:
+  - from: assets
+    to: assets
+  - from: tools/ocr.py
+    to: tools/ocr.py
+
+win:
+  target:
+    - nsis
+  icon: assets/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 奶龙

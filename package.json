@@ -1,0 +1,25 @@
+{
+  "name": "nailong",
+  "version": "1.0.0",
+  "description": "桌面萌宠「奶龙」助手",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "android:sync": "cap sync android",
+    "android:build": "cd android && gradlew assembleDebug"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@capacitor/android": "^7.6.9",
+    "@capacitor/cli": "^7.6.9",
+    "@capacitor/core": "^7.6.9",
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "mammoth": "^1.9.0",
+    "pdf-parse": "^1.1.1"
+  }
+}

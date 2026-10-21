@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; user-select: none; }
+  body {
+    position: relative;
+    font-family: "Microsoft YaHei UI", "PingFang SC", "Segoe UI", sans-serif;
+    --ink: #3A2A1A;
+    --h: 200px;
+    --sw: 150px;
+    --so: .22;
+  }
+  body[data-pose="wink"]  { --h: 200px; --sw: 150px; --so: .22; }
+  body[data-pose="stand"] { --h: 205px; --sw: 96px;  --so: .20; }
+  body[data-pose="sleep"] { --h: 118px; --sw: 200px; --so: .14; }
+
+  /* 接地柔影 */
+  #shadow {
+    position: absolute;
+    bottom: 9px;
+    left: 50%;
+    width: var(--sw);
+    height: 13px;
+    transform: translateX(-50%);
+    background: radial-gradient(ellipse at center, rgba(58,42,26,var(--so)) 0%, rgba(58,42,26,0) 68%);
+    filter: blur(1.5px);
+    transition: width .28s ease, opacity .28s ease, transform .28s ease;
+  }
+
+  /* 奶龙本体 */
+  #pet-wrap {
+    position: absolute;
+    bottom: 14px;
+    left: 0;
+    width: 100%;
+    height: var(--h);
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    transition: height .28s cubic-bezier(.34,1.56,.64,1), transform .2s ease;
+  }
+  #pet-float {
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    animation: float 6s ease-in-out infinite;
+  }
+  #pet {
+    display: block;
+    height: 100%;
+    width: auto;
+    cursor: grab;
+    -webkit-user-drag: none;
+    transform-origin: 50% 100%;
+    transition: opacity .1s ease, transform .18s cubic-bezier(.34,1.56,.64,1), filter .2s ease;
+    animation: breathe 4s ease-in-out infinite;
+    filter: drop-shadow(0 4px 6px rgba(58,42,26,.12));
+  }
+  #pet:active { cursor: grabbing; }
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1, 1) translateY(0); }
+    50%      { transform: scale(1.012, 1.022) translateY(-1px); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-3px); }
+  }
+
+  /* 悬停：抬起来 */
+  body.hover #pet-wrap { transform: translateY(-6px); }
+  body.hover #shadow { transform: translateX(-50%) scale(.92); opacity: .8; }
+
+  /* 拖拽：被拎起来，压扁 */
+  body.dragging #pet-wrap { transform: translateY(-10px); transition: none; }
+  body.dragging #pet { transition: none; }
+  body.dragging #pet { transform: scale(1.045, .94) rotate(-2.5deg); animation: none; }
+  body.dragging #shadow { transform: translateX(-50%) scale(.85); opacity: .55; }
+
+  /* 单击回应：弹一下 */
+  body.bounce #pet { animation: bounce .38s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes bounce {
+    0%   { transform: scale(1, 1); }
+    35%  { transform: scale(.96, 1.06) translateY(-4px); }
+    70%  { transform: scale(1.03, .97); }
+    100% { transform: scale(1, 1); }
+  }
+
+  /* 漫画气泡 */
+  #bubble {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translate(-50%, -4px) scale(.92);
+    max-width: 238px;
+    padding: 7px 12px;
+    background: #FFFDF6;
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 5;
+    box-shadow: 0 3px 0 rgba(58,42,26,.15);
+    transition: opacity .18s ease, transform .22s cubic-bezier(.34,1.56,.64,1);
+  }
+  #bubble::after {
+    content: "";
+    position: absolute;
+    bottom: -7px;
+    left: 50%;
+    width: 11px;
+    height: 11px;
+    margin-left: -5.5px;
+    background: #FFFDF6;
+    border-right: 2px solid var(--ink);
+    border-bottom: 2px solid var(--ink);
+    transform: rotate(45deg);
+    border-bottom-right-radius: 3px;
+  }
+  #bubble.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+  /* 双击粒子 */
+  #fx { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+  .spark {
+    position: absolute;
+    font-size: 15px;
+    animation: spark .9s ease-out forwards;
+    will-change: transform, opacity;
+  }
+  @keyframes spark {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
+    20%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.05) rotate(var(--rot)); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #pet, #pet-float, #pet-wrap, #bubble, #shadow { animation: none !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body data-pose="sleep">
+  <div id="bubble"></div>
+  <div id="shadow"></div>
+  <div id="pet-wrap"><div id="pet-float"><img id="pet" alt="奶龙"></div></div>
+  <div id="fx"></div>
+
+  <script>
+    const pet = document.getElementById('pet');
+    const bubble = document.getElementById('bubble');
+    const fx = document.getElementById('fx');
+    const body = document.body;
+
+    const BUBBLE_LINES = [
+      '今天也要加油哦～',
+      '我的大肚肚，真的很酷酷！',
+      '点我陪你聊天呀～',
+      '嗷呜～想摸摸我的大肚子',
+    ];
+    const DRAG_LINE = '嗷呜——放我下来嘛！';
+
+    const state = {
+      pose: 'wink',
+      hovering: false,
+      dragging: false,
+      moved: false,
+      lastInteract: Date.now(),
+      clickTimer: null,
+      bubbleTimer: null,
+      dragSaid: false,
+      lastSX: 0,
+      lastSY: 0,
+    };
+    let urls = {};
+
+    async function init() {
+      urls = {
+        wink: await window.nailong.getAsset('pet/pose-wink.webp'),
+        stand: await window.nailong.getAsset('pet/pose-stand.webp'),
+        sleep: await window.nailong.getAsset('pet/pose-sleep.webp'),
+      };
+      pet.src = urls.sleep;
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) state.lastInteract = Date.now();
+      });
+      setTimeout(() => say('双击我试试吧！'), 15000);
+    }
+
+    function setPose(name) {
+      if (state.pose === name) return;
+      state.pose = name;
+      body.dataset.pose = name;
+      const next = urls[name];
+      if (!next) return;
+      pet.style.opacity = '0';
+      setTimeout(() => { pet.src = next; pet.style.opacity = '1'; }, 90);
+    }
+
+    function say(text, ms = 3600) {
+      clearTimeout(state.bubbleTimer);
+      bubble.textContent = text;
+      bubble.classList.add('show');
+      state.bubbleTimer = setTimeout(() => bubble.classList.remove('show'), ms);
+    }
+
+    function touch() { state.lastInteract = Date.now(); }
+
+    function setHover(b) {
+      if (state.hovering === b) return;
+      state.hovering = b;
+      body.classList.toggle('hover', b);
+      window.nailong.petHover(b);
+      setPose(b ? 'stand' : 'sleep');
+      if (b) {
+        touch();
+        if (Math.random() < .3) say(BUBBLE_LINES[Math.floor(Math.random() * BUBBLE_LINES.length)], 2600);
+      }
+    }
+
+    document.addEventListener('mousemove', (e) => {
+      const r = pet.getBoundingClientRect();
+      const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      setHover(inside);
+
+      if (state.dragging) {
+        const dx = e.screenX - state.lastSX;
+        const dy = e.screenY - state.lastSY;
+        if (!state.moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) state.moved = true;
+        if (state.moved && !state.dragSaid) {
+          state.dragSaid = true;
+          say(DRAG_LINE, 2200);
+        }
+      }
+    });
+
+    pet.addEventListener('mousedown', (e) => {
+      touch();
+      state.dragging = true;
+      state.moved = false;
+      state.dragSaid = false;
+      state.lastSX = e.screenX;
+      state.lastSY = e.screenY;
+      body.classList.add('dragging');
+      setPose('stand');
+      window.nailong.dragStart();
+    });
+
+    function endDrag() {
+      if (!state.dragging) return;
+      state.dragging = false;
+      body.classList.remove('dragging');
+      window.nailong.dragEnd();
+      if (state.moved) say('呼…站稳啦！', 1800);
+      setTimeout(() => { if (!state.dragging) setPose(state.hovering ? 'stand' : 'sleep'); }, 400);
+    }
+
+    document.addEventListener('mouseup', endDrag);
+    // 兜底：鼠标在窗口外松开、窗口失焦时也要停掉主进程的跟随定时器
+    window.addEventListener('blur', endDrag);
+    document.addEventListener('mouseleave', endDrag);
+
+    pet.addEventListener('click', () => {
+      touch();
+      if (state.moved) { state.moved = false; return; }
+      body.classList.add('bounce');
+      setTimeout(() => body.classList.remove('bounce'), 400);
+      say(BUBBLE_LINES[Math.floor(Math.random() * BUBBLE_LINES.length)], 1800);
+      if (state.clickTimer) clearTimeout(state.clickTimer);
+      state.clickTimer = setTimeout(() => {
+        state.clickTimer = null;
+        window.nailong.singleClick();
+      }, 250);
+    });
+
+    pet.addEventListener('dblclick', () => {
+      touch();
+      if (state.clickTimer) { clearTimeout(state.clickTimer); state.clickTimer = null; }
+      burst();
+      window.nailong.doubleClick();
+    });
+
+    function burst() {
+      const rect = pet.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height * .38;
+      const glyphs = ['✨', '💛', '⭐', '💫', '✨', '💛', '⭐', '💫', '✨', '💛'];
+      glyphs.forEach((g, i) => {
+        const el = document.createElement('span');
+        el.className = 'spark';
+        el.textContent = g;
+        const ang = (Math.PI * 2 * i) / glyphs.length + Math.random() * .5;
+        const dist = 42 + Math.random() * 38;
+        el.style.left = cx + 'px';
+        el.style.top = cy + 'px';
+        el.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+        el.style.setProperty('--dy', Math.sin(ang) * dist - 18 + 'px');
+        el.style.setProperty('--rot', (Math.random() * 90 - 45) + 'deg');
+        el.style.animationDelay = (Math.random() * 80) + 'ms';
+        fx.appendChild(el);
+        setTimeout(() => el.remove(), 1100);
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

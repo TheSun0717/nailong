@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">奶龙</string>
+    <string name="title_activity_main">奶龙</string>
+    <string name="package_name">com.nailong.app</string>
+    <string name="custom_url_scheme">com.nailong.app</string>
+</resources>

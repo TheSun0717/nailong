@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; cursor: none; background: transparent; }
+  #stage {
+    width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .35s ease;
+  }
+  #stage.in { opacity: 1; }
+  /* 竖屏素材：高度撑满，宽度按比例自适应（居中） */
+  video, img { height: 100vh; width: auto; max-width: 100vw; border-radius: 0; }
+  #intro, #loop { display: none; }
+
+  #hint {
+    position: fixed; left: 50%; bottom: 34px; transform: translateX(-50%);
+    padding: 8px 16px; border-radius: 999px;
+    background: rgba(58, 42, 26, .55); color: #FFF8E9;
+    font: 12px/1.4 "Microsoft YaHei UI", sans-serif;
+    letter-spacing: .5px; opacity: 0; transition: opacity .4s ease;
+    pointer-events: none;
+  }
+  #hint.show { opacity: 1; }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <video id="intro" muted playsinline></video>
+    <video id="loop" loop muted playsinline></video>
+    <img id="img" style="display:none" alt="">
+  </div>
+  <div id="hint">点击任意处 / 按任意键退出</div>
+  <audio id="music" loop></audio>
+  <script>
+    const stage = document.getElementById('stage');
+    const intro = document.getElementById('intro');
+    const loop = document.getElementById('loop');
+    const img = document.getElementById('img');
+    const music = document.getElementById('music');
+    const hint = document.getElementById('hint');
+
+    requestAnimationFrame(() => stage.classList.add('in'));
+    setTimeout(() => hint.classList.add('show'), 900);
+    setTimeout(() => hint.classList.remove('show'), 4200);
+
+    window.nailong.onFullscreen((p) => {
+      if (p.mode === 'video') {
+        // 庆祝模式：第 1 条视频开头 → 第 2 条循环；同时循环播放生日快乐歌
+        intro.src = p.intro;
+        loop.src = p.loop;
+        music.src = p.music;
+        intro.style.display = 'block';
+        intro.play().catch(() => {});
+        music.play().catch(() => {});
+        intro.onended = () => {
+          intro.style.display = 'none';
+          loop.style.display = 'block';
+          loop.play().catch(() => {});
+        };
+        intro.onerror = () => {
+          intro.style.display = 'none';
+          loop.style.display = 'block';
+          loop.play().catch(() => {});
+        };
+      } else if (p.mode === 'image') {
+        // 眨眼模式：图片撑满屏幕（高度撑满）
+        img.src = p.image;
+        img.style.display = 'block';
+      }
+    });
+
+    // 单击 / 按任意键退出
+    const exit = () => window.nailong.closeFullscreen();
+    document.addEventListener('click', exit);
+    document.addEventListener('keydown', exit);
+  </script>
+</body>
+</html>

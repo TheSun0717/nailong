@@ -1,0 +1,8 @@
+{
+  "appId": "com.nailong.app",
+  "appName": "奶龙",
+  "webDir": "ui",
+  "server": {
+    "androidScheme": "https"
+  }
+}

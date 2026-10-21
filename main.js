@@ -1,0 +1,578 @@
+const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, screen, nativeImage, globalShortcut } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const { execFile } = require('child_process');
+const { pathToFileURL } = require('url');
+const ai = require('./ai');
+const kb = require('./features/kb');
+const study = require('./features/study');
+const teach = require('./features/teach');
+const video = require('./features/video');
+const bili = require('./features/bilibili');
+
+// 开发环境用独立 profile：避免和已安装版本抢单实例锁，也避免污染正式配置
+if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'nailong-dev'));
+
+const userDataDir = app.getPath('userData');
+const configPath = path.join(userDataDir, 'config.json');
+const filesDir = path.join(userDataDir, 'files');
+const dataDir = path.join(userDataDir, 'data');
+const convPath = path.join(dataDir, 'conversations', 'main.json');
+const explainDir = path.join(dataDir, 'explain');
+const videoDir = path.join(dataDir, 'video');
+kb.init(path.join(dataDir, 'kb'));
+kb.ensureSeeds(path.join(__dirname, 'data', 'seed')).catch(() => {});
+const avatarPath = path.join(userDataDir, 'avatar.png');
+const assetsRoot = app.isPackaged
+  ? path.join(process.resourcesPath, 'assets')
+  : path.join(__dirname, 'assets');
+const ocrScript = app.isPackaged
+  ? path.join(process.resourcesPath, 'tools', 'ocr.py')
+  : path.join(__dirname, 'tools', 'ocr.py');
+
+const DEFAULT_CONFIG = {
+  apiKey: '', // 不预置 Key：每位用户在自己的电脑上填写（公开仓库不能带凭证）
+  model: 'deepseek-v4-pro',
+  openAtLogin: true,
+  hasSeenHint: false,
+  userAvatar: false,
+  petPosition: null, // 奶龙位置 {x, y}，拖拽后记住
+  profile: { level: '', region: '', school: '', major: '', grade: '' },
+};
+
+// 允许自动播放音频/视频（生日歌循环需要）
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
+// 单实例：已打开就聚焦已有奶龙，不再开第二个
+const gotSingleLock = app.requestSingleInstanceLock();
+if (!gotSingleLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (petWin) petWin.show();
+  });
+}
+
+let config = loadConfig();
+let petWin = null;
+let chatWin = null;
+let fullWin = null;
+let explainWin = null;
+let tray = null;
+
+function loadConfig() {
+  try { return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(configPath, 'utf8')) }; }
+  catch { return { ...DEFAULT_CONFIG }; }
+}
+function saveConfig() {
+  try { fs.mkdirSync(userDataDir, { recursive: true }); fs.writeFileSync(configPath, JSON.stringify(config, null, 2)); } catch {}
+}
+function assetUrl(rel) {
+  return pathToFileURL(path.join(assetsRoot, rel)).href;
+}
+
+// ---------- 窗口 ----------
+function createPet() {
+  if (petWin) { petWin.show(); return; }
+  petWin = new BrowserWindow({
+    width: 260,
+    height: 260,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    hasShadow: false,
+    webPreferences: { preload: path.join(__dirname, 'preload.js') },
+  });
+  petWin.setAlwaysOnTop(true, 'screen-saver');
+  petWin.loadFile(path.join(__dirname, 'ui', 'pet.html'));
+  petWin.on('closed', () => { petWin = null; });
+  petWin.once('ready-to-show', () => positionPet());
+}
+
+// 贴任务栏上方（workArea 已排除任务栏，底部即任务栏上沿），默认右下角；拖拽后记住位置
+function positionPet() {
+  if (!petWin) return;
+  const { workArea } = screen.getPrimaryDisplay();
+  const [w, h] = petWin.getSize();
+  let x, y;
+  if (config.petPosition) {
+    x = config.petPosition.x;
+    y = config.petPosition.y;
+    // 边界保护：位置在屏幕外就回退到默认位置（防止拖到屏幕外后下次看不到）
+    if (x < workArea.x || y < workArea.y || x + w > workArea.x + workArea.width || y + h > workArea.y + workArea.height) {
+      x = workArea.x + workArea.width - w - 16;
+      y = workArea.y + workArea.height - h;
+    }
+  } else {
+    x = workArea.x + workArea.width - w - 16;
+    y = workArea.y + workArea.height - h;
+  }
+  petWin.setPosition(Math.round(x), Math.round(y));
+  // 初始穿透：鼠标未悬停时点击穿透到桌面
+  petWin.setIgnoreMouseEvents(true, { forward: true });
+}
+
+function openChat() {
+  if (chatWin) { chatWin.focus(); return; }
+  chatWin = new BrowserWindow({
+    width: 420,
+    height: 660,
+    minWidth: 340,
+    minHeight: 500,
+    frame: false,
+    resizable: true,
+    backgroundColor: '#FFF8E9',
+    webPreferences: { preload: path.join(__dirname, 'preload.js') },
+  });
+  chatWin.loadFile(path.join(__dirname, 'ui', 'chat.html'));
+  chatWin.on('closed', () => { chatWin = null; });
+}
+
+// 全局快捷键：显示/隐藏奶龙
+function togglePet() {
+  if (!petWin) { createPet(); return; }
+  if (petWin.isVisible()) petWin.hide();
+  else petWin.show();
+}
+
+function playFullscreen(payload) {
+  if (fullWin) return;
+  const { width, height, x, y } = screen.getPrimaryDisplay().bounds;
+  const transparent = payload.mode === 'image'; // 图片模式透明背景（像挂件）；视频模式奶油色背景
+  fullWin = new BrowserWindow({
+    width,
+    height,
+    x,
+    y,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    transparent,
+    backgroundColor: transparent ? '#00000000' : '#FFF6E0',
+    webPreferences: { preload: path.join(__dirname, 'preload.js') },
+  });
+  fullWin.setAlwaysOnTop(true, 'screen-saver');
+  fullWin.loadFile(path.join(__dirname, 'ui', 'fullscreen.html'));
+  fullWin.once('ready-to-show', () => fullWin.webContents.send('fullscreen-data', payload));
+  fullWin.on('closed', () => { fullWin = null; });
+}
+
+// 讲解页：独立窗口，沙箱 + 禁止跳转与外链，页面只允许内联资源
+function openExplainer(file) {
+  const p = path.resolve(String(file));
+  if (!p.startsWith(path.resolve(explainDir) + path.sep)) throw new Error('非法路径');
+  if (explainWin && !explainWin.isDestroyed()) {
+    explainWin.loadFile(p);
+    explainWin.show();
+    explainWin.focus();
+    return true;
+  }
+  explainWin = new BrowserWindow({
+    width: 1100,
+    height: 820,
+    minWidth: 720,
+    minHeight: 560,
+    title: '奶龙讲解',
+    backgroundColor: '#FFFBF2',
+    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+  });
+  explainWin.setMenuBarVisibility(false);
+  explainWin.loadFile(p);
+  explainWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  explainWin.webContents.on('will-navigate', (e) => e.preventDefault());
+  explainWin.on('closed', () => { explainWin = null; });
+  return true;
+}
+
+// ---------- 托盘 ----------
+function createTray() {
+  try {
+    const icon = nativeImage.createFromPath(path.join(assetsRoot, 'avatar', 'nailong-face-64.png'));
+    if (icon.isEmpty()) throw new Error('缺少托盘图标 assets/avatar/nailong-face-64.png');
+    tray = new Tray(icon.resize({ width: 16, height: 16 }));
+    tray.setToolTip('奶龙');
+    tray.setContextMenu(buildTrayMenu());
+    tray.on('click', () => openChat());
+  } catch (e) {
+    console.warn('[奶龙] 托盘不可用：', e.message);
+  }
+}
+function buildTrayMenu() {
+  return Menu.buildFromTemplate([
+    { label: '打开对话框', click: () => openChat() },
+    { label: '显示/隐藏奶龙  (Ctrl+Alt+D)', click: () => togglePet() },
+    { type: 'separator' },
+    { label: '开机自启', type: 'checkbox', checked: config.openAtLogin, click: (i) => toggleAutoLaunch(i.checked) },
+    { type: 'separator' },
+    { label: '退出奶龙', click: () => app.quit() },
+  ]);
+}
+function toggleAutoLaunch(on) {
+  config.openAtLogin = on;
+  saveConfig();
+  if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: on });
+}
+
+// ---------- IPC ----------
+function registerIpc() {
+  ipcMain.handle('asset-url', (_e, rel) => assetUrl(rel));
+  ipcMain.handle('config-get', () => config);
+  ipcMain.handle('config-set', (_e, patch) => { config = { ...config, ...patch }; saveConfig(); return config; });
+
+  ipcMain.handle('ai-ask', (_e, q) => ai.answer(q, config));
+
+  ipcMain.on('ai-ask-stream', async (event, { id, q }) => {
+    const send = (p) => { if (!event.sender.isDestroyed()) event.sender.send('ai-stream', { id, ...p }); };
+    const fixed = ai.matchFixed(q);
+    if (fixed) { send({ delta: fixed }); send({ done: true }); return; }
+    if (!config.apiKey) {
+      send({ delta: '我还没有连上大脑哦～让主人在设置里填一下 DeepSeek Key，我就能陪你聊天啦！' });
+      send({ done: true });
+      return;
+    }
+    try {
+      let systemPrompt;
+      if (study.shouldUse(q)) {
+        const ctx = study.buildStudyContext(q, config);
+        systemPrompt = ctx.system;
+        send({ meta: { mode: 'study', refs: ctx.refs.map((r) => ({ source: r.source, school: r.school })) } });
+      }
+      await ai.streamDeepSeek(String(q || '').trim(), config, (delta) => send({ delta }), systemPrompt);
+      send({ done: true });
+    } catch (e) {
+      send({ error: e.message || String(e) });
+    }
+  });
+
+  ipcMain.handle('explain-generate', async (_e, text) => {
+    try {
+      const html = await teach.generate(text, config);
+      fs.mkdirSync(explainDir, { recursive: true });
+      const file = path.join(explainDir, `explain-${Date.now()}.html`);
+      fs.writeFileSync(file, html, 'utf8');
+      openExplainer(file);
+      return { ok: true, path: file };
+    } catch (e) {
+      return { ok: false, error: e.message || String(e) };
+    }
+  });
+  ipcMain.handle('explain-open', (_e, file) => {
+    try { return openExplainer(file); } catch (e) { return false; }
+  });
+
+  ipcMain.handle('video-generate', async (event, text) => {
+    try {
+      return await video.generate(text, config, videoDir, (p) => {
+        if (!event.sender.isDestroyed()) event.sender.send('video-progress', p);
+      });
+    } catch (e) {
+      return { ok: false, error: e.message || String(e) };
+    }
+  });
+  ipcMain.handle('video-open', (_e, file) => { try { shell.openPath(String(file)); return true; } catch { return false; } });
+
+  ipcMain.handle('bili-search', async (_e, q) => {
+    try { return await bili.search(q); } catch (e) { return { error: e.message || String(e) }; }
+  });
+  ipcMain.handle('open-external', (_e, url) => {
+    const u = String(url || '');
+    if (!/^https?:\/\//i.test(u)) return false;
+    shell.openExternal(u);
+    return true;
+  });
+
+  ipcMain.handle('save-note', async (_e, text) => {
+    const d = new Date();
+    const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+    const r = await dialog.showSaveDialog(chatWin, {
+      title: '保存为笔记',
+      defaultPath: path.join(app.getPath('documents'), `奶龙笔记-${stamp}.md`),
+      filters: [{ name: 'Markdown', extensions: ['md'] }],
+    });
+    if (r.canceled || !r.filePath) return null;
+    const body = `# 奶龙学习笔记\n\n${String(text || '')}\n\n---\n${d.toLocaleString('zh-CN')} · 由奶龙整理\n`;
+    fs.writeFileSync(r.filePath, body, 'utf8');
+    return r.filePath;
+  });
+
+  ipcMain.handle('kb-import', async () => {
+    const r = await dialog.showOpenDialog(chatWin, {
+      title: '导入学习资料（讲义 / 试卷 / 笔记）',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: '学习资料', extensions: ['pdf', 'docx', 'txt', 'md', 'markdown'] }],
+    });
+    if (r.canceled) return [];
+    const profile = config.profile || {};
+    return kb.importFiles(r.filePaths, { school: profile.school || '', level: profile.level || '' });
+  });
+  ipcMain.handle('kb-list', () => kb.list());
+  ipcMain.handle('kb-remove', (_e, id) => kb.remove(id));
+
+  ipcMain.handle('conv-load', () => {
+    try { return JSON.parse(fs.readFileSync(convPath, 'utf8')); } catch { return []; }
+  });
+  ipcMain.handle('conv-save', (_e, messages) => {
+    try {
+      fs.mkdirSync(path.dirname(convPath), { recursive: true });
+      fs.writeFileSync(convPath, JSON.stringify(messages));
+    } catch (e) { console.warn('[奶龙] 保存会话失败：', e.message); }
+    return true;
+  });
+  ipcMain.handle('conv-clear', () => {
+    try { fs.rmSync(convPath, { force: true }); } catch {}
+    return true;
+  });
+
+  ipcMain.handle('avatar-pick', async () => {
+    const r = await dialog.showOpenDialog(chatWin, {
+      title: '选择头像',
+      properties: ['openFile'],
+      filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'] }],
+    });
+    if (r.canceled || !r.filePaths[0]) return null;
+    try {
+      fs.copyFileSync(r.filePaths[0], avatarPath);
+      config.userAvatar = true;
+      saveConfig();
+      return pathToFileURL(avatarPath).href;
+    } catch { return null; }
+  });
+  ipcMain.handle('get-avatar-url', () =>
+    config.userAvatar && fs.existsSync(avatarPath) ? pathToFileURL(avatarPath).href : null);
+
+  ipcMain.handle('file-pick', async () => {
+    const r = await dialog.showOpenDialog(chatWin, {
+      title: '选择要发送的文件',
+      properties: ['openFile', 'multiSelections'],
+    });
+    if (r.canceled) return [];
+    fs.mkdirSync(filesDir, { recursive: true });
+    const saved = [];
+    for (const f of r.filePaths) {
+      const n = path.basename(f);
+      fs.copyFileSync(f, path.join(filesDir, n));
+      saved.push(n);
+    }
+    return saved;
+  });
+  ipcMain.handle('file-list', () => {
+    try {
+      return fs.readdirSync(filesDir).map((n) => ({ name: n, isDir: fs.statSync(path.join(filesDir, n)).isDirectory() }));
+    } catch { return []; }
+  });
+  // 防止路径穿越：只允许 filesDir 内的文件
+  const safePath = (name) => {
+    const p = path.resolve(filesDir, String(name));
+    if (!p.startsWith(path.resolve(filesDir) + path.sep)) throw new Error('非法路径');
+    return p;
+  };
+  ipcMain.handle('file-open', (_e, name) => shell.openPath(safePath(name)));
+  ipcMain.handle('file-delete', (_e, name) => { fs.rmSync(safePath(name), { recursive: true }); return true; });
+  ipcMain.handle('file-rename', (_e, oldName, newName) => {
+    fs.renameSync(safePath(oldName), path.join(filesDir, path.basename(String(newName))));
+    return true;
+  });
+
+  // 图片 OCR：本地 RapidOCR（需要系统 Python + rapidocr_onnxruntime）
+  ipcMain.handle('ocr-file', (_e, name) => new Promise((resolve) => {
+    let file;
+    try { file = safePath(name); } catch (e) { resolve({ error: e.message }); return; }
+    const py = process.env.NAILONG_PYTHON || 'python';
+    execFile(py, [ocrScript, file], { encoding: 'utf8', timeout: 180000 },
+      (err, stdout) => {
+        if (err) { resolve({ error: err.message }); return; }
+        try {
+          const val = JSON.parse(String(stdout).trim());
+          resolve(Array.isArray(val) ? val.join('\n') : val);
+        } catch {
+          resolve({ error: '识别结果解析失败' });
+        }
+      });
+  }));
+
+  ipcMain.on('pet-hover', (_e, hovering) => {
+    if (!petWin) return;
+    if (hovering) petWin.setIgnoreMouseEvents(false);
+    else petWin.setIgnoreMouseEvents(true, { forward: true });
+  });
+  // 拖拽：主进程直接跟随系统鼠标（12ms 一帧），不经过渲染进程的 mousemove IPC
+  let petDragTimer = null;
+  ipcMain.on('pet-drag-start', () => {
+    if (!petWin) return;
+    const cursor = screen.getCursorScreenPoint();
+    const [wx, wy] = petWin.getPosition();
+    const offX = cursor.x - wx;
+    const offY = cursor.y - wy;
+    clearInterval(petDragTimer);
+    petDragTimer = setInterval(() => {
+      if (!petWin || petWin.isDestroyed()) return;
+      const c = screen.getCursorScreenPoint();
+      petWin.setPosition(Math.round(c.x - offX), Math.round(c.y - offY));
+    }, 12);
+  });
+  ipcMain.on('pet-drag-end', () => {
+    clearInterval(petDragTimer);
+    petDragTimer = null;
+    if (!petWin) return;
+    const [x, y] = petWin.getPosition();
+    config.petPosition = { x, y };
+    saveConfig();
+  });
+  // 兼容旧接口
+  ipcMain.on('pet-move', (_e, dx, dy) => {
+    if (!petWin) return;
+    const [x, y] = petWin.getPosition();
+    petWin.setPosition(Math.round(x + dx), Math.round(y + dy));
+  });
+  ipcMain.on('pet-move-end', () => {
+    if (!petWin) return;
+    const [x, y] = petWin.getPosition();
+    config.petPosition = { x, y };
+    saveConfig();
+  });
+  ipcMain.on('pet-singleclick', () => openChat());
+  ipcMain.on('pet-doubleclick', () => {
+    const d = new Date();
+    const celebrate = d.getMonth() === 8 && d.getDate() === 23; // 每年 9 月 23 日
+    if (celebrate) {
+      playFullscreen({
+        mode: 'video',
+        intro: assetUrl('pet/celebrate-1.mp4'),
+        loop: assetUrl('pet/celebrate-2.mp4'),
+        music: assetUrl('pet/birthday.mp3'),
+      });
+    } else {
+      playFullscreen({ mode: 'image', image: assetUrl('pet/wink-large.webp') });
+    }
+  });
+  ipcMain.on('fullscreen-close', () => { if (fullWin) fullWin.close(); });
+  ipcMain.on('chat-close', () => { if (chatWin) chatWin.close(); });
+}
+
+// 开发用：electron . --capture 生成界面截图到 shots/ 后退出，不影响正常启动
+async function captureUi() {
+  const out = path.join(__dirname, 'shots');
+  fs.mkdirSync(out, { recursive: true });
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const shot = async (win, name) => {
+    for (let i = 0; i < 4; i++) {
+      try {
+        fs.writeFileSync(path.join(out, name), (await win.webContents.capturePage()).toPNG());
+        return;
+      } catch (e) {
+        console.warn('[capture]', name, 'retry', i + 1, e.message);
+        await wait(500);
+      }
+    }
+  };
+  try {
+    await wait(2200);
+    if (petWin) {
+      await shot(petWin, 'pet.png');
+      await petWin.webContents.executeJavaScript("setPose('sleep')");
+      await wait(700);
+      await shot(petWin, 'pet-sleep.png');
+      await petWin.webContents.executeJavaScript("setPose('sleep'); say('我的大肚肚，真的很酷酷！')");
+      await wait(500);
+      await shot(petWin, 'pet-bubble.png');
+      await petWin.webContents.executeJavaScript("document.body.classList.add('hover')");
+      await wait(420);
+      await shot(petWin, 'pet-hover.png');
+      await petWin.webContents.executeJavaScript("document.body.classList.remove('hover'); document.body.classList.add('dragging'); setPose('stand')");
+      await wait(500);
+      await shot(petWin, 'pet-drag.png');
+    }
+    try { fs.rmSync(convPath, { force: true }); } catch {}
+    openChat();
+    await wait(1200);
+    chatWin.show();
+    chatWin.focus();
+    await wait(400);
+    await shot(chatWin, 'chat-empty.png');
+    await chatWin.webContents.executeJavaScript(`(() => {
+      document.querySelector('#study-btn').click();
+      document.querySelector('#p-level').value = '本科';
+      document.querySelector('#p-region').value = '北京';
+      document.querySelector('#p-school').value = '北京邮电大学';
+      document.querySelector('#p-major').value = '人工智能';
+      document.querySelector('#p-grade').value = '大二';
+    })()`);
+    await wait(500);
+    await shot(chatWin, 'chat-study.png');
+    await chatWin.webContents.executeJavaScript("document.querySelector('#study-close').click()");
+    await wait(300);
+    await chatWin.webContents.executeJavaScript(`(async () => {
+      addMsg('me', '我是北邮的，人工智能数学方法这门课怎么学？', { restore: true });
+      addMsg('nailong', '# 可以这样安排\\n\\n先把 **线性代数** 和 **概率论** 捡回来，再进入矩阵求导。\\n\\n| 阶段 | 重点 | 产出 |\\n|---|---|---|\\n| 1 | 矩阵求导 | 手推 10 道 |\\n| 2 | 凸优化 | 一页笔记 |\\n\\n\`\`\`python\\nimport numpy as np\\nprint(np.eye(3))\\n\`\`\`\\n\\n> 每天 1 小时，先看懂再刷题。', { restore: true });
+      addMsg('me', '收到，谢谢奶龙！', { restore: true });
+      addMsg('nailong', '嘿嘿，我的大肚肚里全是知识～', { restore: true });
+    })()`);
+    await wait(600);
+    await shot(chatWin, 'chat.png');
+  } catch (e) {
+    console.error('[capture] failed:', e);
+  } finally {
+    await wait(200);
+    app.quit();
+  }
+}
+
+// 开发用：electron . --selftest 跑一次「发消息→渲染」的最短回归，退出码即结果
+async function selfTest() {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const askIdx = process.argv.indexOf('--ask');
+  const question = askIdx > 0 ? process.argv[askIdx + 1] : '你是谁';
+  const isDefault = question === '你是谁';
+  try {
+    try { fs.rmSync(convPath, { force: true }); } catch {}
+    openChat();
+    await wait(1500);
+    await chatWin.webContents.executeJavaScript(
+      `document.querySelector('#input').value=${JSON.stringify(question)};document.querySelector('#send').click();`);
+    for (let i = 0; i < 240; i++) {
+      await wait(500);
+      const done = await chatWin.webContents.executeJavaScript("!document.querySelector('#send').disabled");
+      if (done) break;
+    }
+    const text = await chatWin.webContents.executeJavaScript(
+      "Array.from(document.querySelectorAll('.msg.nailong .bubble')).map((e) => e.innerText).join('|')");
+    const ok = isDefault ? text.includes('我是奶龙') : text.trim().length > 20;
+    console.log('[selftest]', ok ? 'PASS' : 'FAIL', JSON.stringify(text.slice(0, 2500)));
+    app.exit(ok ? 0 : 1);
+  } catch (e) {
+    console.error('[selftest] ERROR', e);
+    app.exit(2);
+  }
+}
+
+app.whenReady().then(() => {
+  if (!gotSingleLock) return;
+  registerIpc();
+  createPet();
+  createTray();
+  if (process.argv.includes('--capture')) { captureUi(); return; }
+  if (process.argv.includes('--selftest')) { selfTest(); return; }
+  if (process.argv.includes('--muxonly')) {
+    const i = process.argv.indexOf('--muxonly');
+    video.finish(process.argv[i + 1])
+      .then((f) => { console.log('[muxonly] OK', f); app.exit(0); })
+      .catch((e) => { console.error('[muxonly] ERROR', e.message); app.exit(1); });
+    return;
+  }
+  if (process.argv.includes('--videotest')) {
+    const i = process.argv.indexOf('--videotest');
+    video.generate(process.argv[i + 1] || '勾股定理', config, videoDir, (p) => console.log('[video]', p.pct, p.msg))
+      .then((r) => { console.log('[videotest]', JSON.stringify(r)); app.exit(0); })
+      .catch((e) => { console.error('[videotest] ERROR', e.message); app.exit(1); });
+    return;
+  }
+  if (app.isPackaged && config.openAtLogin) app.setLoginItemSettings({ openAtLogin: true });
+  // 全局快捷键：Ctrl+Alt+D 显示/隐藏奶龙
+  const ok = globalShortcut.register('CommandOrControl+Alt+D', togglePet);
+  if (!ok) console.warn('[奶龙] 快捷键 Ctrl+Alt+D 注册失败（可能被其他程序占用）');
+});
+
+// 常驻托盘，关闭所有窗口不退出（靠托盘「退出奶龙」退出）
+app.on('window-all-closed', () => {});

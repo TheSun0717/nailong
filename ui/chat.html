@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>奶龙</title>
+<style>
+  :root {
+    --cream: #FFF8E9;
+    --cream-deep: #FFEFD2;
+    --paper: #FFFDF8;
+    --yellow: #FFC93C;
+    --yellow-soft: #FFE39A;
+    --yellow-deep: #E8A20A;
+    --ink: #3A2A1A;
+    --ink-soft: #8A7860;
+    --line: rgba(58, 42, 26, .13);
+    --shadow-1: 0 2px 0 rgba(58, 42, 26, .07);
+    --shadow-2: 0 8px 24px rgba(58, 42, 26, .10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    display: flex;
+    flex-direction: column;
+    font-family: "Microsoft YaHei UI", "PingFang SC", "Segoe UI", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(rgba(58, 42, 26, .05) 1px, transparent 1px) 0 0 / 16px 16px,
+      linear-gradient(180deg, #FFFCF3 0%, #FFF5DF 100%);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- 顶栏 ---------- */
+  #header {
+    flex: 0 0 auto;
+    height: 88px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px 0 16px;
+    background: linear-gradient(180deg, #FFFDF7 0%, #FFF3DA 100%);
+    border-bottom: 1.5px solid var(--line);
+    -webkit-app-region: drag;
+    position: relative;
+    z-index: 3;
+  }
+  .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .avatar-ring {
+    width: 46px; height: 46px; flex: 0 0 auto; border-radius: 50%; padding: 2px;
+    background: linear-gradient(145deg, #FFE07A, var(--yellow));
+    box-shadow: 0 3px 0 rgba(58, 42, 26, .13);
+  }
+  .avatar-ring img {
+    width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+    border: 2px solid var(--paper); display: block;
+  }
+  .brand-text { min-width: 0; }
+  .brand-text h1 { font-size: 16px; font-weight: 700; letter-spacing: .5px; line-height: 1.2; }
+  .status {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--ink-soft); margin-top: 4px; white-space: nowrap;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #52C41A; box-shadow: 0 0 0 3px rgba(82, 196, 26, .15); }
+  .header-actions { display: flex; gap: 8px; -webkit-app-region: no-drag; }
+  .icon-btn {
+    width: 28px; height: 28px; border-radius: 50%; border: none; background: transparent;
+    color: var(--ink-soft); font-size: 14px; cursor: pointer; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s, transform .1s;
+  }
+  .icon-btn:hover { background: rgba(58, 42, 26, .07); color: var(--ink); }
+  .icon-btn:active { transform: scale(.94); }
+
+  #hint {
+    display: none; flex: 0 0 auto; padding: 8px 14px; font-size: 11.5px; line-height: 1.5;
+    color: #8A5A00; background: #FFF3D0; border-bottom: 1.5px solid rgba(232, 162, 10, .25);
+  }
+
+  /* ---------- 消息区 ---------- */
+  #messages {
+    flex: 1 1 auto; overflow-y: auto; overflow-x: hidden;
+    padding: 16px 14px 8px;
+    scroll-behavior: smooth;
+  }
+  #messages::-webkit-scrollbar { width: 8px; }
+  #messages::-webkit-scrollbar-thumb { background: rgba(58, 42, 26, .14); border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
+  #messages::-webkit-scrollbar-thumb:hover { background: rgba(58, 42, 26, .26); background-clip: padding-box; }
+
+  .msg { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 15px; animation: pop .22s cubic-bezier(.34, 1.56, .64, 1); }
+  .msg.me { flex-direction: row-reverse; }
+  @keyframes pop {
+    from { opacity: 0; transform: translateY(7px) scale(.985); }
+    to   { opacity: 1; transform: none; }
+  }
+  .avatar {
+    width: 34px; height: 34px; flex: 0 0 auto; border-radius: 50%; overflow: hidden;
+    background: var(--yellow-soft); border: 2px solid var(--paper);
+    box-shadow: 0 2px 0 rgba(58, 42, 26, .10);
+  }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .msg.me .avatar { cursor: pointer; }
+  .msg.me .avatar:hover { box-shadow: 0 0 0 3px rgba(255, 201, 60, .45); }
+
+  .stack { display: flex; flex-direction: column; max-width: calc(100% - 52px); min-width: 0; }
+  .msg.me .stack { align-items: flex-end; }
+
+  .bubble {
+    position: relative;
+    padding: 9px 13px;
+    border-radius: 16px;
+    background: var(--paper);
+    border: 1.5px solid var(--line);
+    box-shadow: var(--shadow-1);
+    font-size: 13.5px;
+    line-height: 1.62;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .msg.nailong .bubble { border-top-left-radius: 6px; }
+  .msg.me .bubble { border-top-right-radius: 6px; background: #FFD866; border-color: rgba(58, 42, 26, .16); }
+  .bubble::before {
+    content: ""; position: absolute; top: 10px; left: -5px; width: 8px; height: 9px;
+    background: var(--paper);
+    clip-path: polygon(100% 0, 100% 100%, 0 50%);
+  }
+  .msg.me .bubble::before {
+    left: auto; right: -5px;
+    background: #FFD866;
+    clip-path: polygon(0 0, 0 100%, 100% 50%);
+  }
+  .meta { font-size: 10px; color: var(--ink-soft); opacity: .75; margin-top: 5px; padding: 0 4px; }
+  .actions { display: flex; gap: 4px; margin-top: 2px; opacity: 0; transition: opacity .15s; }
+  .msg:hover .actions { opacity: 1; }
+  .actions button {
+    border: none; background: transparent; color: var(--ink-soft); font-size: 10.5px;
+    cursor: pointer; padding: 2px 5px; border-radius: 6px; font-family: inherit;
+  }
+  .actions button:hover { background: var(--cream-deep); color: var(--ink); }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 92px; transform: translate(-50%, 8px);
+    max-width: 82%; padding: 8px 14px; border-radius: 999px;
+    background: rgba(58, 42, 26, .9); color: #FFF8E9; font-size: 11.5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    opacity: 0; pointer-events: none; transition: opacity .22s, transform .22s; z-index: 50;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .mode-tag {
+    align-self: flex-start; margin-bottom: 5px; padding: 2px 9px;
+    font-size: 10.5px; color: #8A5A00; background: #FFF3D0;
+    border: 1px solid rgba(232, 162, 10, .32); border-radius: 999px;
+  }
+
+  .plain { white-space: pre-wrap; }
+  .msg.no-anim { animation: none; }
+  .bubble.streaming { white-space: pre-wrap; }
+  .vprog { display: flex; flex-direction: column; gap: 7px; min-width: 190px; padding: 2px 0; }
+  .vbar { height: 6px; border-radius: 3px; background: var(--cream-deep); overflow: hidden; }
+  .vbar i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--yellow); transition: width .3s ease; }
+  .vmsg { font-size: 11.5px; color: var(--ink-soft); }
+  .res-title { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+  .res-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px dashed var(--line); }
+  .res-row:first-of-type { border-top: 0; }
+  .res-info { flex: 1; min-width: 0; }
+  .res-name { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .res-meta { font-size: 10px; color: var(--ink-soft); margin-top: 2px; }
+  .res-row button {
+    flex: 0 0 auto; border: 1.5px solid var(--line); background: var(--paper);
+    border-radius: 999px; padding: 3px 9px; font-size: 11px; color: var(--ink);
+    cursor: pointer; font-family: inherit;
+  }
+  .res-row button:hover { background: var(--cream-deep); }
+  .bubble.streaming::after {
+    content: ""; display: inline-block; width: 6px; height: 13px; margin-left: 2px;
+    vertical-align: -2px; border-radius: 1px; background: var(--yellow-deep);
+    animation: caret 1s steps(1) infinite;
+  }
+  @keyframes caret { 50% { opacity: 0; } }
+
+  /* markdown */
+  .bubble > *:first-child { margin-top: 0; }
+  .bubble > *:last-child { margin-bottom: 0; }
+  .bubble p { margin: 6px 0; }
+  .bubble h1, .bubble h2, .bubble h3, .bubble h4 { margin: 12px 0 6px; line-height: 1.35; font-weight: 700; }
+  .bubble h1 { font-size: 16px; }
+  .bubble h2 { font-size: 15px; }
+  .bubble h3 { font-size: 14px; }
+  .bubble h4 { font-size: 13.5px; }
+  .bubble ul, .bubble ol { margin: 6px 0; padding-left: 1.35em; }
+  .bubble li { margin: 3px 0; }
+  .bubble strong { color: #2A1D0F; }
+  .bubble a { color: #A96F00; text-decoration: underline; text-underline-offset: 2px; }
+  .bubble code {
+    font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+    font-size: 12px; background: #FFF0C8; border: 1px solid rgba(58, 42, 26, .10);
+    border-radius: 5px; padding: 1px 5px;
+  }
+  .bubble pre {
+    background: #3A2A1A; color: #FFF3DA; border-radius: 10px;
+    padding: 10px 12px; margin: 8px 0; overflow-x: auto;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06);
+  }
+  .bubble pre code {
+    background: transparent; border: 0; padding: 0; color: inherit;
+    font-size: 12px; line-height: 1.55; white-space: pre;
+  }
+  .bubble blockquote {
+    margin: 8px 0; padding: 2px 0 2px 10px;
+    border-left: 3px solid var(--yellow); color: #6E5B41;
+  }
+  .bubble table { border-collapse: collapse; font-size: 12px; margin: 8px 0; width: 100%; }
+  .bubble th, .bubble td { border: 1px solid var(--line); padding: 5px 8px; text-align: left; }
+  .bubble th { background: var(--cream-deep); font-weight: 700; }
+  .bubble hr { border: none; border-top: 1.5px dashed var(--line); margin: 10px 0; }
+  .bubble img { max-width: 100%; border-radius: 8px; }
+
+  /* 思考动画 */
+  .typing { display: flex; align-items: center; gap: 5px; height: 18px; padding: 1px 2px; }
+  .typing i {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--yellow-deep);
+    opacity: .35; animation: blink 1.15s infinite ease-in-out;
+  }
+  .typing i:nth-child(2) { animation-delay: .16s; }
+  .typing i:nth-child(3) { animation-delay: .32s; }
+  @keyframes blink {
+    0%, 80%, 100% { opacity: .3; transform: translateY(0); }
+    40% { opacity: 1; transform: translateY(-3px); }
+  }
+
+  /* ---------- 空状态 ---------- */
+  .empty {
+    height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 0 10px 26px;
+  }
+  .empty img {
+    width: 116px; height: auto; filter: drop-shadow(0 10px 14px rgba(58, 42, 26, .14));
+    animation: bob 5s ease-in-out infinite;
+  }
+  @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+  .empty h2 { font-size: 16px; margin-top: 10px; letter-spacing: .5px; }
+  .empty p { font-size: 12px; color: var(--ink-soft); margin-top: 7px; line-height: 1.65; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 18px; }
+  .chip {
+    border: 1.5px solid var(--line); background: var(--paper); color: var(--ink);
+    padding: 7px 12px; border-radius: 999px; font-size: 12px; cursor: pointer;
+    box-shadow: var(--shadow-1); font-family: inherit;
+    transition: transform .14s, border-color .14s, background .14s;
+  }
+  .chip:hover { transform: translateY(-2px); border-color: var(--yellow); background: #FFF9E6; }
+  .chip:active { transform: translateY(0); }
+
+  /* ---------- 文件面板 ---------- */
+  #file-panel {
+    display: none; flex: 0 0 auto; height: 218px; overflow-y: auto;
+    background: var(--paper); border-top: 1.5px solid var(--line);
+    padding: 12px 14px;
+  }
+  #file-panel.open { display: block; }
+  #file-panel .ftitle { font-size: 12.5px; font-weight: 700; margin-bottom: 8px; color: var(--ink); }
+  #file-panel .frow {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 8px; border-radius: 10px; font-size: 12.5px;
+  }
+  #file-panel .frow:hover { background: var(--cream); }
+  #file-panel .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #file-panel .frow button {
+    border: 1.5px solid var(--line); background: var(--paper); border-radius: 8px;
+    padding: 3px 8px; cursor: pointer; font-size: 11.5px; color: var(--ink); font-family: inherit;
+  }
+  #file-panel .frow button:hover { background: var(--cream-deep); }
+  #file-panel .fempty { font-size: 12px; color: var(--ink-soft); padding: 4px 2px; }
+
+  .file-item { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+  .file-item span { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-item button {
+    border: 1.5px solid rgba(58, 42, 26, .2); background: rgba(255, 255, 255, .55);
+    color: var(--ink); border-radius: 999px; padding: 2px 9px; cursor: pointer;
+    font-size: 11.5px; font-family: inherit; flex: 0 0 auto;
+  }
+  .file-item button:hover { background: #fff; }
+
+  /* ---------- 输入区 ---------- */
+  #input-bar {
+    flex: 0 0 auto; display: flex; align-items: flex-end; gap: 5px;
+    padding: 10px 12px 12px;
+    background: linear-gradient(180deg, rgba(255, 248, 233, .4), var(--cream-deep));
+    border-top: 1.5px solid var(--line);
+  }
+  .tool-btn {
+    width: 30px; height: 30px; flex: 0 0 auto; border-radius: 50%;
+    border: 1.5px solid var(--line); background: var(--paper);
+    cursor: pointer; font-size: 13px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--shadow-1); transition: transform .12s, background .15s;
+  }
+  .tool-btn:hover { background: #FFF9E6; }
+  .tool-btn:active { transform: translateY(1px); }
+  #input-shell {
+    flex: 1 1 auto; min-width: 0;
+    background: var(--paper); border: 1.5px solid var(--line); border-radius: 20px;
+    padding: 8px 13px; transition: border-color .15s, box-shadow .15s;
+  }
+  #input-shell:focus-within { border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(255, 201, 60, .22); }
+  #input {
+    display: block; width: 100%; border: none; outline: none; resize: none; background: transparent;
+    font-family: inherit; font-size: 13.5px; line-height: 1.5; color: var(--ink);
+    max-height: 88px; overflow-y: auto;
+  }
+  #input::placeholder { color: #B6A78E; }
+  #send {
+    width: 40px; height: 40px; flex: 0 0 auto; border-radius: 50%; border: none;
+    background: var(--yellow); color: var(--ink); font-size: 16px; cursor: pointer;
+    box-shadow: 0 3px 0 var(--yellow-deep);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .1s, box-shadow .1s, opacity .15s;
+  }
+  #send:hover { filter: brightness(1.03); }
+  #send:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--yellow-deep); }
+  #send:disabled { opacity: .45; cursor: default; transform: none; box-shadow: 0 3px 0 var(--yellow-deep); }
+
+  /* ---------- 弹层 ---------- */
+  .modal {
+    display: none; position: fixed; inset: 0; z-index: 20;
+    align-items: center; justify-content: center;
+    background: rgba(58, 42, 26, .32); backdrop-filter: blur(2px);
+  }
+  .modal.open { display: flex; }
+  .modal .card {
+    width: 320px; max-width: calc(100vw - 40px); max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    background: var(--cream); border: 2px solid var(--ink); border-radius: 18px;
+    padding: 18px 18px 16px;
+    box-shadow: 0 5px 0 rgba(58, 42, 26, .18), var(--shadow-2);
+    animation: pop .2s cubic-bezier(.34, 1.56, .64, 1);
+  }
+  .modal h3 { font-size: 14.5px; margin-bottom: 12px; }
+  .modal label { font-size: 11.5px; color: var(--ink-soft); display: block; margin: 10px 0 5px; }
+  .modal input, .modal select {
+    width: 100%; height: 36px; border: 1.5px solid var(--line); border-radius: 10px;
+    padding: 0 11px; font-size: 12.5px; outline: none; background: var(--paper);
+    color: var(--ink); font-family: inherit;
+  }
+  .modal input:focus, .modal select:focus { border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(255, 201, 60, .22); }
+  .modal .btns { display: flex; gap: 9px; margin-top: 16px; }
+  .modal .btns button {
+    flex: 1; height: 36px; border-radius: 10px; border: 1.5px solid var(--line);
+    cursor: pointer; font-size: 12.5px; font-family: inherit; font-weight: 700;
+  }
+  #save-key, #save-profile { background: var(--yellow); border-color: var(--yellow-deep) !important; box-shadow: 0 3px 0 var(--yellow-deep); }
+  #save-key:active, #save-profile:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--yellow-deep); }
+  #cancel-key, #study-close { background: var(--paper); color: var(--ink); }
+  .modal .tip { font-size: 11px; color: var(--ink-soft); margin-top: 12px; line-height: 1.55; }
+
+  /* 学习助手弹层 */
+  #study-modal .card { width: 360px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .row2 > div { min-width: 0; }
+  .kb-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 18px 0 8px; padding-top: 12px; border-top: 1.5px dashed var(--line);
+    font-size: 12px; font-weight: 700;
+  }
+  #kb-import {
+    border: 1.5px solid var(--yellow-deep); background: var(--yellow); color: var(--ink);
+    border-radius: 999px; padding: 4px 10px; font-size: 11.5px; font-family: inherit;
+    cursor: pointer; box-shadow: 0 2px 0 var(--yellow-deep); font-weight: 700;
+  }
+  #kb-list { display: flex; flex-direction: column; gap: 6px; max-height: 168px; overflow-y: auto; }
+  .kb-row {
+    display: flex; align-items: center; gap: 8px; padding: 7px 9px;
+    background: var(--paper); border: 1.5px solid var(--line); border-radius: 10px; font-size: 12px;
+  }
+  .kb-row .kb-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kb-row .kb-meta { font-size: 10px; color: var(--ink-soft); flex: 0 0 auto; }
+  .kb-row button { border: none; background: transparent; color: #B4543A; cursor: pointer; font-size: 11px; font-family: inherit; }
+  .kb-empty { font-size: 11.5px; color: var(--ink-soft); padding: 6px 2px; line-height: 1.6; }
+  .kb-status { font-size: 11px; color: var(--ink-soft); margin-top: 8px; line-height: 1.5; }
+  #clear-conv {
+    width: 100%; margin-top: 12px; padding: 7px 0; border: none; background: transparent;
+    color: #B4543A; font-size: 11.5px; font-family: inherit; cursor: pointer;
+    border-top: 1px dashed var(--line);
+  }
+  #clear-conv:hover { color: #8C3A24; }
+
+  @media (max-width: 400px) {
+    #file-panel-btn, #attach, #close { display: none; }
+    #input-bar { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+    .bubble { font-size: 13px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+  <div id="header">
+    <div class="brand">
+      <div class="avatar-ring"><img id="header-avatar" alt="奶龙"></div>
+      <div class="brand-text">
+        <h1>奶龙</h1>
+        <div class="status"><span class="dot"></span>在线 · 大肚肚待命中</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="settings-btn" title="设置 DeepSeek 接口">⚙</button>
+      <button class="icon-btn" id="close" title="关闭">✕</button>
+    </div>
+  </div>
+
+  <div id="hint">💡 点击你自己的头像，可以换一张照片当头像哦～</div>
+
+  <div id="messages">
+    <div class="empty" id="empty">
+      <img id="empty-art" alt="">
+      <h2>吼吼，今天想聊点什么？</h2>
+      <p>陪你聊天、整理文件，也可以问我怎么学一门课。</p>
+      <div class="chips">
+        <button class="chip" data-q="谁是世界上最帅的人">谁是世界上最帅的人</button>
+        <button class="chip" data-q="帮我整理一下今天的心情">聊聊今天</button>
+        <button class="chip" data-q="这门课应该怎么学？">怎么学一门课</button>
+        <button class="chip" data-action="study">设置我的学习画像</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="file-panel"></div>
+
+  <div id="input-bar">
+    <button class="tool-btn" id="explain-btn" title="把输入框里的题做成讲解页">🧩</button>
+    <button class="tool-btn" id="video-btn" title="生成讲解视频">🎬</button>
+    <button class="tool-btn" id="study-btn" title="学习助手">🎓</button>
+    <button class="tool-btn" id="file-panel-btn" title="文件管理">📁</button>
+    <button class="tool-btn" id="attach" title="发送文件">＋</button>
+    <div id="input-shell">
+      <textarea id="input" rows="1" placeholder="和奶龙说点什么…"></textarea>
+    </div>
+    <button id="send" title="发送（Enter）">➤</button>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="study-modal" class="modal">
+    <div class="card">
+      <h3>🎓 学习助手</h3>
+      <label>学段</label>
+      <select id="p-level">
+        <option value="">未设置</option>
+        <option>小学</option>
+        <option>初中</option>
+        <option>高中</option>
+        <option>本科</option>
+        <option>研究生</option>
+      </select>
+      <div class="row2">
+        <div>
+          <label>省 / 市</label>
+          <input id="p-region" placeholder="如：北京">
+        </div>
+        <div>
+          <label>学校</label>
+          <input id="p-school" placeholder="如：北京邮电大学">
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <label>专业 / 方向</label>
+          <input id="p-major" placeholder="如：人工智能">
+        </div>
+        <div>
+          <label>年级</label>
+          <input id="p-grade" placeholder="如：大二">
+        </div>
+      </div>
+      <div class="btns">
+        <button id="save-profile">保存画像</button>
+      </div>
+
+      <div class="kb-head">
+        <span>我的资料</span>
+        <button id="kb-import">＋ 导入</button>
+      </div>
+      <div id="kb-list"></div>
+      <div class="kb-status" id="kb-status"></div>
+
+      <div class="tip">同校、同课程的讲义和学长经验优先级最高。资料只存在本机，不会上传。</div>
+      <div class="btns">
+        <button id="study-close">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-modal" class="modal">
+    <div class="card">
+      <h3>⚙ 设置 DeepSeek 接口</h3>
+      <label>API Key</label>
+      <input id="api-key" type="password" placeholder="sk-...">
+      <label>模型（可留空）</label>
+      <input id="model-input" placeholder="deepseek-chat">
+      <div class="btns">
+        <button id="cancel-key">取消</button>
+        <button id="save-key">保存</button>
+      </div>
+      <div class="tip">Key 只存在本机，不会上传。到 platform.deepseek.com 注册充值后即可获取。</div>
+      <button id="clear-conv">清空对话记录</button>
+    </div>
+  </div>
+
+<script src="bridge-web.js"></script>
+<script src="vendor/marked.min.js"></script>
+<script src="vendor/purify.min.js"></script>
+<script>
+  const $ = (s) => document.querySelector(s);
+  const DEFAULT_ME = 'data:image/svg+xml,' + encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><circle cx='40' cy='40' r='40' fill='#FFE39A'/><circle cx='40' cy='32' r='13' fill='#FFFDF8'/><ellipse cx='40' cy='63' rx='23' ry='17' fill='#FFFDF8'/></svg>");
+
+  let nailongAvatarUrl = '';
+  let meAvatarUrl = DEFAULT_ME;
+  let currentConfig = null;
+  let busy = false;
+  let history = [];
+  let saveTimer = null;
+  const pendingStreams = new Map();
+
+  if (window.marked && window.marked.setOptions) {
+    window.marked.setOptions({ gfm: true, breaks: true });
+  }
+
+  function now() {
+    return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function formatTs(ts) {
+    const d = new Date(ts || Date.now());
+    return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      window.nailong.saveConversation(history).catch(() => {});
+    }, 250);
+  }
+
+  let toastTimer = null;
+  function toast(text) {
+    const el = $('#toast');
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+  }
+
+  function addAction(stack, label, fn) {
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.onclick = fn;
+    actions.appendChild(btn);
+    stack.appendChild(actions);
+  }
+
+  function addNoteAction(stack, text) {
+    if (!text) return;
+    addAction(stack, '存为笔记', async () => {
+      try {
+        const p = await window.nailong.saveNote(text);
+        if (p) toast('已保存：' + p);
+      } catch (e) {
+        toast('保存失败：' + (e && e.message ? e.message : e));
+      }
+    });
+  }
+
+  function renderMd(text) {
+    const raw = String(text ?? '');
+    if (window.marked && window.DOMPurify) {
+      try {
+        const html = window.marked.parse(raw);
+        return window.DOMPurify.sanitize(html, {
+          FORBID_TAGS: ['style', 'iframe', 'form', 'input', 'video', 'audio'],
+        });
+      } catch (_) { /* fallthrough */ }
+    }
+    const d = document.createElement('div');
+    d.textContent = raw;
+    return d.innerHTML.replace(/\n/g, '<br>');
+  }
+
+  async function init() {
+    currentConfig = await window.nailong.getConfig();
+    nailongAvatarUrl = await window.nailong.getAsset('avatar/nailong-face.webp');
+    meAvatarUrl = (await window.nailong.getAvatarUrl()) || DEFAULT_ME;
+
+    $('#header-avatar').src = nailongAvatarUrl;
+    $('#empty-art').src = await window.nailong.getAsset('pet/pose-wink.webp');
+
+    if (!currentConfig.hasSeenHint) {
+      $('#hint').style.display = 'block';
+      await window.nailong.setConfig({ hasSeenHint: true });
+      setTimeout(() => { $('#hint').style.display = 'none'; }, 6000);
+    }
+
+    const saved = await window.nailong.loadConversation();
+    if (Array.isArray(saved) && saved.length) {
+      history = saved;
+      saved.forEach((m) => addMsg(m.who, m.text, { restore: true, ts: m.ts }));
+    }
+    $('#input').focus();
+  }
+
+  function hideEmpty() {
+    const empty = $('#empty');
+    if (empty) empty.remove();
+  }
+
+  function scrollBottom() {
+    const box = $('#messages');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function addMsg(who, text, opts = {}) {
+    hideEmpty();
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + (who === 'me' ? 'me' : 'nailong');
+
+    const av = document.createElement('div');
+    av.className = 'avatar';
+    const img = document.createElement('img');
+    img.src = who === 'me' ? meAvatarUrl : nailongAvatarUrl;
+    img.alt = who === 'me' ? '我' : '奶龙';
+    av.appendChild(img);
+    if (who === 'me') { av.title = '点击更换头像'; av.onclick = changeAvatar; }
+
+    const stack = document.createElement('div');
+    stack.className = 'stack';
+    const bub = document.createElement('div');
+    bub.className = 'bubble';
+
+    if (opts.typing) {
+      bub.innerHTML = '<div class="typing"><i></i><i></i><i></i></div>';
+    } else if (who === 'me') {
+      const p = document.createElement('div');
+      p.className = 'plain';
+      p.textContent = text;
+      bub.appendChild(p);
+    } else {
+      bub.innerHTML = renderMd(text);
+    }
+
+    const ts = opts.ts || Date.now();
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = opts.typing ? '' : formatTs(ts);
+
+    stack.appendChild(bub);
+    stack.appendChild(meta);
+    if (who !== 'me' && !opts.typing && text) addNoteAction(stack, text);
+    wrap.appendChild(av);
+    wrap.appendChild(stack);
+    if (opts.restore) wrap.classList.add('no-anim');
+    $('#messages').appendChild(wrap);
+    scrollBottom();
+
+    if (!opts.typing && !opts.restore) {
+      history.push({ who, text, ts });
+      scheduleSave();
+    }
+    return wrap;
+  }
+
+  function finishStream(id, st, text) {
+    pendingStreams.delete(id);
+    st.wrap.querySelector('.meta').textContent = now();
+    if (text) {
+      history.push({ who: 'nailong', text, ts: Date.now() });
+      scheduleSave();
+      addNoteAction(st.wrap.querySelector('.stack'), text);
+    }
+    busy = false;
+    $('#send').disabled = false;
+    $('#input').focus();
+    scrollBottom();
+  }
+
+  window.nailong.onStream((p) => {
+    const st = pendingStreams.get(p.id);
+    if (!st) return;
+
+    if (p.meta && p.meta.mode === 'study' && !st.tagged) {
+      st.tagged = true;
+      const tag = document.createElement('div');
+      tag.className = 'mode-tag';
+      tag.textContent = `🎓 学习模式${p.meta.refs.length ? ` · 引用 ${p.meta.refs.length} 份资料` : ' · 暂无本地资料'}`;
+      st.wrap.querySelector('.stack').insertBefore(tag, st.bubble);
+      if (st.q) addAction(st.wrap.querySelector('.stack'), '补充 B 站视频', () => supplement(st.q));
+    }
+
+    if (p.delta) {
+      if (!st.started) {
+        st.started = true;
+        st.bubble.innerHTML = '';
+        st.bubble.classList.add('streaming');
+      }
+      st.text += p.delta;
+      st.bubble.textContent = st.text;
+      scrollBottom();
+    }
+
+    if (p.error) {
+      st.bubble.classList.remove('streaming');
+      st.bubble.innerHTML = renderMd(`呜…我走神了（${p.error}），主人稍后再试一次好不好？`);
+      finishStream(p.id, st, null);
+    } else if (p.done) {
+      st.bubble.classList.remove('streaming');
+      const text = st.text || '吼吼，我脑子卡住啦';
+      st.bubble.innerHTML = renderMd(text);
+      finishStream(p.id, st, text);
+    }
+  });
+
+  async function changeAvatar() {
+    const url = await window.nailong.pickAvatar();
+    if (url) {
+      meAvatarUrl = url;
+      document.querySelectorAll('.msg.me .avatar img').forEach((i) => { i.src = url; });
+    }
+  }
+
+  function send() {
+    if (busy) return;
+    const input = $('#input');
+    const q = input.value.trim();
+    if (!q) return;
+
+    input.value = '';
+    autosize();
+    addMsg('me', q);
+
+    busy = true;
+    $('#send').disabled = true;
+    const wrap = addMsg('nailong', '', { typing: true });
+    const id = 's' + Date.now() + Math.random().toString(36).slice(2, 6);
+    pendingStreams.set(id, { wrap, bubble: wrap.querySelector('.bubble'), text: '', started: false, q });
+    window.nailong.askStream(id, q);
+  }
+
+  async function supplement(q) {
+    toast('正在搜 B 站公开课…');
+    let res;
+    try {
+      res = await window.nailong.searchBilibili(q);
+    } catch (e) {
+      toast('搜索失败：' + (e && e.message ? e.message : e));
+      return;
+    }
+    if (!Array.isArray(res)) { toast('搜索失败：' + ((res && res.error) || '未知错误')); return; }
+    if (!res.length) { toast('没搜到相关视频'); return; }
+
+    const wrap = addMsg('nailong', '', { typing: true });
+    const bub = wrap.querySelector('.bubble');
+    bub.innerHTML = '';
+    const title = document.createElement('div');
+    title.className = 'res-title';
+    title.textContent = 'B 站公开课（按相关度）';
+    bub.appendChild(title);
+
+    res.forEach((it) => {
+      const row = document.createElement('div');
+      row.className = 'res-row';
+      const info = document.createElement('div');
+      info.className = 'res-info';
+      const name = document.createElement('div');
+      name.className = 'res-name';
+      name.textContent = it.title;
+      name.title = it.title;
+      const meta = document.createElement('div');
+      meta.className = 'res-meta';
+      meta.textContent = `${it.up} · 播放 ${it.play}`;
+      info.appendChild(name);
+      info.appendChild(meta);
+      const btn = document.createElement('button');
+      btn.textContent = '打开';
+      btn.onclick = () => window.nailong.openExternal(it.url);
+      row.appendChild(info);
+      row.appendChild(btn);
+      bub.appendChild(row);
+    });
+
+    wrap.querySelector('.meta').textContent = now();
+    history.push({ who: 'nailong', text: 'B 站公开课：' + res.map((r) => r.title).join('；'), ts: Date.now() });
+    scheduleSave();
+    scrollBottom();
+  }
+
+  async function explain() {
+    if (busy) return;
+    const q = $('#input').value.trim();
+    if (!q) { toast('先在输入框里写下知识点或题目'); return; }
+
+    $('#input').value = '';
+    autosize();
+    addMsg('me', q);
+
+    busy = true;
+    $('#send').disabled = true;
+    const wrap = addMsg('nailong', '', { typing: true });
+    const bub = wrap.querySelector('.bubble');
+    const stack = wrap.querySelector('.stack');
+
+    try {
+      const res = await window.nailong.generateExplainer(q);
+      if (res.ok) {
+        bub.innerHTML = renderMd('讲解页做好啦，已经在独立窗口打开。\n\n关掉了也没关系，点下面的按钮可以再打开。');
+        addAction(stack, '再打开讲解页', () => window.nailong.openExplainer(res.path));
+        history.push({ who: 'nailong', text: `讲解页：${q}`, ts: Date.now() });
+        scheduleSave();
+      } else {
+        bub.innerHTML = renderMd(`呜…讲解页没做出来（${res.error}），再试一次好不好？`);
+      }
+    } catch (e) {
+      bub.innerHTML = renderMd('呜…讲解页没做出来：' + (e && e.message ? e.message : e));
+    } finally {
+      wrap.querySelector('.meta').textContent = now();
+      busy = false;
+      $('#send').disabled = false;
+      scrollBottom();
+    }
+  }
+
+  async function makeVideo() {
+    if (busy) return;
+    const q = $('#input').value.trim();
+    if (!q) { toast('先写下知识点或题目'); return; }
+
+    $('#input').value = '';
+    autosize();
+    addMsg('me', q);
+
+    busy = true;
+    $('#send').disabled = true;
+    const wrap = addMsg('nailong', '', { typing: true });
+    const stack = wrap.querySelector('.stack');
+    const bub = wrap.querySelector('.bubble');
+    bub.innerHTML = '<div class="vprog"><div class="vbar"><i></i></div><div class="vmsg">准备中…</div></div>';
+    const bar = bub.querySelector('.vbar i');
+    const msg = bub.querySelector('.vmsg');
+    window.__videoProgress = (p) => {
+      if (!p) return;
+      if (typeof p.pct === 'number') bar.style.width = p.pct + '%';
+      if (p.msg) msg.textContent = p.msg;
+    };
+
+    try {
+      const res = await window.nailong.generateVideo(q);
+      window.__videoProgress = null;
+      if (res.ok) {
+        bub.innerHTML = renderMd(`🎬 视频做好啦：**${res.title}**\n\n约 ${(res.duration / 60).toFixed(1)} 分钟 · ${res.frames} 帧`);
+        addAction(stack, '播放视频', () => window.nailong.openVideo(res.video));
+        history.push({ who: 'nailong', text: `讲解视频：${res.title}`, ts: Date.now() });
+        scheduleSave();
+      } else {
+        bub.innerHTML = renderMd(`呜…视频没做出来（${res.error}）`);
+      }
+    } catch (e) {
+      window.__videoProgress = null;
+      bub.innerHTML = renderMd('呜…视频没做出来：' + (e && e.message ? e.message : e));
+    } finally {
+      wrap.querySelector('.meta').textContent = now();
+      busy = false;
+      $('#send').disabled = false;
+      scrollBottom();
+    }
+  }
+
+  function autosize() {
+    const input = $('#input');
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 88) + 'px';
+  }
+
+  async function pickFiles() {
+    const names = await window.nailong.pickFile();
+    if (!names.length) return;
+    addFileMsg(names);
+
+    const img = names.find((n) => /\.(png|jpe?g|webp|bmp)$/i.test(n));
+    if (!img) return;
+    toast('正在识别图片里的文字…');
+    const res = await window.nailong.ocrFile(img);
+    if (typeof res === 'string' && res.trim()) {
+      const input = $('#input');
+      input.value = res.trim();
+      autosize();
+      input.focus();
+      toast('识别完成，可以直接发送，或点 🧩 生成讲解页');
+    } else {
+      toast('没认出文字：' + ((res && res.error) || '换个更清晰的图片试试'));
+    }
+  }
+
+  function addFileMsg(names) {
+    hideEmpty();
+    const wrap = document.createElement('div');
+    wrap.className = 'msg me';
+    const av = document.createElement('div');
+    av.className = 'avatar';
+    const img = document.createElement('img');
+    img.src = meAvatarUrl;
+    av.appendChild(img);
+    const stack = document.createElement('div');
+    stack.className = 'stack';
+    const bub = document.createElement('div');
+    bub.className = 'bubble';
+    names.forEach((n) => {
+      const row = document.createElement('div');
+      row.className = 'file-item';
+      const s = document.createElement('span');
+      s.textContent = '📄 ' + n;
+      const open = document.createElement('button');
+      open.textContent = '打开';
+      open.onclick = () => window.nailong.openFile(n);
+      row.appendChild(s);
+      row.appendChild(open);
+      bub.appendChild(row);
+    });
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = now();
+    stack.appendChild(bub);
+    stack.appendChild(meta);
+    wrap.appendChild(av);
+    wrap.appendChild(stack);
+    $('#messages').appendChild(wrap);
+    scrollBottom();
+  }
+
+  async function toggleFilePanel() {
+    const panel = $('#file-panel');
+    if (panel.classList.contains('open')) { panel.classList.remove('open'); return; }
+    panel.classList.add('open');
+    await refreshFiles();
+  }
+
+  async function refreshFiles() {
+    const files = await window.nailong.listFiles();
+    const panel = $('#file-panel');
+    panel.innerHTML = '<div class="ftitle">📁 奶龙的文件夹</div>';
+    if (!files.length) {
+      panel.innerHTML += '<div class="fempty">空空的，点 ＋ 发个文件给奶龙吧～</div>';
+      return;
+    }
+    for (const f of files) {
+      const row = document.createElement('div');
+      row.className = 'frow';
+      const name = document.createElement('span');
+      name.className = 'fname';
+      name.textContent = f.name;
+      const open = document.createElement('button');
+      open.textContent = '打开';
+      open.onclick = () => window.nailong.openFile(f.name);
+      const rename = document.createElement('button');
+      rename.textContent = '重命名';
+      rename.onclick = async () => {
+        const nn = prompt('新文件名：', f.name);
+        if (nn) { await window.nailong.renameFile(f.name, nn); refreshFiles(); }
+      };
+      const del = document.createElement('button');
+      del.textContent = '删除';
+      del.onclick = async () => {
+        if (!confirm(`删除「${f.name}」？`)) return;
+        await window.nailong.deleteFile(f.name);
+        refreshFiles();
+      };
+      row.appendChild(name);
+      row.appendChild(open);
+      row.appendChild(rename);
+      row.appendChild(del);
+      panel.appendChild(row);
+    }
+  }
+
+  $('#send').onclick = send;
+  $('#explain-btn').onclick = explain;
+  $('#video-btn').onclick = makeVideo;
+  window.nailong.onVideoProgress((p) => {
+    if (typeof window.__videoProgress === 'function') window.__videoProgress(p);
+  });
+
+  $('#input').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+    if (e.isComposing || e.keyCode === 229) return;
+    e.preventDefault();
+    send();
+  });
+  $('#input').addEventListener('input', autosize);
+
+  document.querySelectorAll('.chip').forEach((chip) => {
+    chip.onclick = () => {
+      if (chip.dataset.action === 'study') { openStudy(); return; }
+      const input = $('#input');
+      input.value = chip.dataset.q || '';
+      autosize();
+      input.focus();
+    };
+  });
+
+  $('#attach').onclick = pickFiles;
+  $('#file-panel-btn').onclick = toggleFilePanel;
+  $('#close').onclick = () => window.nailong.closeChat();
+
+  function openSettings() {
+    $('#api-key').value = currentConfig.apiKey || '';
+    $('#model-input').value = currentConfig.model || 'deepseek-chat';
+    $('#settings-modal').classList.add('open');
+  }
+  function closeSettings() {
+    $('#settings-modal').classList.remove('open');
+  }
+  $('#settings-btn').onclick = openSettings;
+  $('#cancel-key').onclick = closeSettings;
+  $('#save-key').onclick = async () => {
+    const apiKey = $('#api-key').value.trim();
+    const model = $('#model-input').value.trim() || 'deepseek-chat';
+    await window.nailong.setConfig({ apiKey, model });
+    currentConfig = await window.nailong.getConfig();
+    closeSettings();
+    addMsg('nailong', apiKey ? '大脑接好啦，吼吼～现在可以和我随便聊啦！' : '已清空 Key，我现在只能回答固定问题啦。');
+  };
+  $('#settings-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'settings-modal') closeSettings();
+  });
+  $('#clear-conv').onclick = async () => {
+    if (!confirm('清空全部对话记录？')) return;
+    await window.nailong.clearConversation();
+    location.reload();
+  };
+
+  /* ---------- 学习助手 ---------- */
+  function openStudy() {
+    const p = currentConfig.profile || {};
+    $('#p-level').value = p.level || '';
+    $('#p-region').value = p.region || '';
+    $('#p-school').value = p.school || '';
+    $('#p-major').value = p.major || '';
+    $('#p-grade').value = p.grade || '';
+    $('#kb-status').textContent = '';
+    $('#study-modal').classList.add('open');
+    renderKb();
+  }
+  function closeStudy() { $('#study-modal').classList.remove('open'); }
+
+  async function renderKb() {
+    const box = $('#kb-list');
+    let docs = [];
+    try { docs = await window.nailong.listKnowledge(); } catch (_) { docs = []; }
+    box.innerHTML = '';
+    if (!docs.length) {
+      box.innerHTML = '<div class="kb-empty">还没有资料。导入课程讲义、试卷、笔记或学长经验（PDF / Word / TXT / Markdown）。</div>';
+      return;
+    }
+    docs.forEach((d) => {
+      const row = document.createElement('div');
+      row.className = 'kb-row';
+      const name = document.createElement('span');
+      name.className = 'kb-name';
+      name.textContent = d.name;
+      name.title = d.name;
+      const meta = document.createElement('span');
+      meta.className = 'kb-meta';
+      meta.textContent = `${d.chunks} 段`;
+      const del = document.createElement('button');
+      del.textContent = '删除';
+      del.onclick = async () => {
+        if (!confirm(`从知识库移除「${d.name}」？`)) return;
+        await window.nailong.removeKnowledge(d.id);
+        renderKb();
+      };
+      row.appendChild(name);
+      row.appendChild(meta);
+      row.appendChild(del);
+      box.appendChild(row);
+    });
+  }
+
+  $('#study-btn').onclick = openStudy;
+  $('#study-close').onclick = closeStudy;
+  $('#study-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'study-modal') closeStudy();
+  });
+
+  $('#save-profile').onclick = async () => {
+    const profile = {
+      level: $('#p-level').value,
+      region: $('#p-region').value.trim(),
+      school: $('#p-school').value.trim(),
+      major: $('#p-major').value.trim(),
+      grade: $('#p-grade').value.trim(),
+    };
+    await window.nailong.setConfig({ profile });
+    currentConfig = await window.nailong.getConfig();
+    const btn = $('#save-profile');
+    btn.textContent = '已保存 ✓';
+    setTimeout(() => { btn.textContent = '保存画像'; }, 1500);
+  };
+
+  $('#kb-import').onclick = async () => {
+    const res = await window.nailong.importStudyFiles();
+    if (!res.length) return;
+    const ok = res.filter((r) => !r.error);
+    const bad = res.filter((r) => r.error);
+    $('#kb-status').textContent = `已导入 ${ok.length} 份` +
+      (bad.length ? `；${bad.length} 份失败：${bad.map((b) => `${b.name}（${b.error}）`).join('，')}` : '');
+    renderKb();
+  };
+
+  init();
+</script>
+</body>
+</html>
