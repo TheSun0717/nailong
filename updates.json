@@ -1,20 +1,20 @@
 {
   "app": {
-    "version": "1.7.0",
+    "version": "1.7.1",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.7.0/nailong-Setup-1.7.0.exe",
-    "sha256": "692959dcbd26625c487f09fb736645c59bd3d17488693287a198f9033c8c54a8",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.7.1/nailong-Setup-1.7.1.exe",
+    "sha256": "27c3088bfa605bbcaa232ad3e03ba7a8a6b6de682b5a48c105154c55a2c06330",
     "notes": {
-      "summary": "学习/讲解插件化。",
+      "summary": "插件更新失败自动回滚。",
       "items": [
-        "第一方插件「学习资料助手」：/study、/kb-stats",
-        "第一方插件「讲解工坊」：/explain、/video",
-        "能力总线补 kb.list / kb.profile / teach.explain 与 teach 权限",
-        "内置插件随包安装，可启停/卸载"
+        "插件更新保留 .bak；加载失败时自动恢复上一版并重试一次",
+        "清理失败版本已注册的命令，避免残留",
+        "回滚逻辑加入 tests/plugins.test.js",
+        "主界面按钮保留为宿主快捷方式"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.7.0/nailong-Setup-1.7.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.7.1/nailong-Setup-1.7.1.exe"
     ]
   },
   "plugins": [
