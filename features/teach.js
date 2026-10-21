@@ -95,17 +95,17 @@ function imageData(file) {
   return `data:${mime};base64,${buf.toString('base64')}`;
 }
 
-async function solve(topic, config, imagePath) {
+async function solve(topic, config, imagePath, temperature = 0.2) {
   const prompt = `${SOLVE_SYSTEM}\n\n题目/知识点：\n${topic}`;
   let raw;
   if (imagePath) {
     try {
-      raw = await ai.askWithImage(prompt, config, SOLVE_SYSTEM, imageData(imagePath), 0.2);
+      raw = await ai.askWithImage(prompt, config, SOLVE_SYSTEM, imageData(imagePath), temperature);
     } catch (_) {
-      raw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, 0.2, { json: true });
+      raw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, temperature, { json: true });
     }
   } else {
-    raw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, 0.2, { json: true });
+    raw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, temperature, { json: true });
   }
   const spec = extractJson(raw);
   if (!isSpec(spec)) throw new Error('模型没有返回解题卡');
@@ -396,10 +396,44 @@ function renderHtml(spec, issues = [], checkNote = '') {
 </body></html>`;
 }
 
+function normAnswer(a) {
+  return String(a || '').toLowerCase().replace(/[\s，。,.：:；;、"'"'（）()=]/g, '');
+}
+
+async function arbitrate(a, b, config) {
+  try {
+    const raw = await ai.askDeepSeek(
+      `两位老师独立解题，得到了不同的答案。请以阅卷老师的标准判断哪一版正确，并输出修正后的完整解题卡 JSON（结构同前）。
+
+A：${JSON.stringify(a)}
+
+B：${JSON.stringify(b)}`,
+      config, SOLVE_SYSTEM, 0, { json: true });
+    const s = extractJson(raw);
+    return isSpec(s) ? normalizeSpec(s) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 async function generate(topic, config, imagePath, opts = {}) {
   const q = String(topic || '').trim();
   if (!q && !imagePath) throw new Error('请提供知识点、题目或图片');
-  let spec = augmentChecks(await solve(q || '请先识别图片中的题目并解答', config, imagePath));
+  const promptText = q || '请先识别图片中的题目并解答';
+  let spec = augmentChecks(await solve(promptText, config, imagePath));
+  let dualNote = '';
+  // 双解一致性：只在纯文本题上做，避免图片题第二次看不到图
+  if (!imagePath && promptText.length >= 6) {
+    try {
+      const second = augmentChecks(await solve(promptText + '\n（请独立再解一遍，不要参考上一次）', config, null, 0.7));
+      if (normAnswer(second.answer) && normAnswer(spec.answer) && normAnswer(second.answer) === normAnswer(spec.answer)) {
+        dualNote = '双解一致';
+      } else if (normAnswer(spec.answer) && normAnswer(second.answer)) {
+        const fixed = await arbitrate(spec, second, config);
+        if (fixed) { spec = augmentChecks(fixed); dualNote = '双解不一致，已仲裁修正'; }
+      }
+    } catch (_) {}
+  }
   const check = await runChecks(spec.checks, opts.sympyScript);
   let extra = [];
   if (!check.allOk) {
@@ -410,7 +444,8 @@ async function generate(topic, config, imagePath, opts = {}) {
     else if (recheck.failed.length) extra = ['符号验算仍有未通过项：' + recheck.failed.join('；')];
   }
   const verified = await verify(spec, config);
-  return renderHtml(verified.spec, [...(verified.issues || []), ...extra], check.note);
+  const note = [check.note, dualNote].filter(Boolean).join(' · ');
+  return renderHtml(verified.spec, [...(verified.issues || []), ...extra], note);
 }
 
 module.exports = { generate, solve, verify, renderHtml };

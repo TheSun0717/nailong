@@ -101,7 +101,7 @@ function svgForVisual(v) {
   if (type === 'triangle') {
     const a = d.aLabel || d.a || 'a', b = d.bLabel || d.b || 'b', c = d.cLabel || d.c || 'c';
     return '<svg viewBox="0 0 460 340">' +
-      '<polygon points="60,290 60,70 400,290" fill="rgba(255,201,60,.2)" stroke="#3A2A1A" stroke-width="3"/>' +
+      '<polygon class="draw" points="60,290 60,70 400,290" fill="rgba(255,201,60,.2)" stroke="#3A2A1A" stroke-width="3"/>' +
       '<rect x="60" y="270" width="20" height="20" fill="none" stroke="#3A2A1A" stroke-width="2"/>' +
       '<text x="28" y="190" font-size="20" fill="#3B6EA5">' + esc(b) + '</text>' +
       '<text x="220" y="325" font-size="20" fill="#C08A17">' + esc(a) + '</text>' +
@@ -118,7 +118,7 @@ function svgForVisual(v) {
         const y = a * x * x + b * x + c;
         path += (k ? 'L' : 'M') + (70 + ((x + 4) / 8) * 340).toFixed(1) + ',' + Math.max(20, Math.min(300, 290 - (y + 5) * 20)).toFixed(1);
       }
-      s += '<path d="' + path + '" fill="none" stroke="#3B6EA5" stroke-width="3"/>';
+      s += '<path class="draw" d="' + path + '" fill="none" stroke="#3B6EA5" stroke-width="3"/>';
     }
     (d.points || []).slice(0, 8).forEach((p) => {
       const px = 70 + ((Number(p.x) + 4) / 8) * 340;
@@ -133,7 +133,7 @@ function svgForVisual(v) {
     let s = '<svg viewBox="0 0 460 340">';
     nodes.forEach((n, k) => {
       const y = 40 + k * 60;
-      s += '<rect x="60" y="' + y + '" width="340" height="40" rx="10" fill="rgba(255,201,60,.22)" stroke="#3A2A1A" stroke-width="2"/>';
+      s += '<rect class="draw" x="60" y="' + y + '" width="340" height="40" rx="10" fill="rgba(255,201,60,.22)" stroke="#3A2A1A" stroke-width="2"/>';
       s += '<text x="80" y="' + (y + 26) + '" font-size="15">' + esc(n) + '</text>';
       if (k < nodes.length - 1) s += '<line x1="230" y1="' + (y + 40) + '" x2="230" y2="' + (y + 60) + '" stroke="#3A2A1A" stroke-width="2"/>';
     });
@@ -173,6 +173,8 @@ function buildHtml(data, timeline, totalMs) {
   .cols .txt { flex: 1; min-width: 0; }
   .vis { flex: 0 0 40%; max-width: 420px; }
   .vis svg { width: 100%; height: auto; max-height: 300px; }
+  .scene.on .vis .draw { stroke-dasharray: 700; stroke-dashoffset: 700; animation: draw 1.1s ease forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
   .sub { position: absolute; left: 84px; right: 84px; bottom: 58px; font-size: 20px; line-height: 1.55; color: #8A7860; }
   .bar { position: absolute; left: 0; bottom: 0; height: 6px; width: 0; background: #F2A81D; }
 </style></head>
@@ -199,6 +201,7 @@ function buildHtml(data, timeline, totalMs) {
     const exit = clamp((st.end - ms) / 500, 0, 1);
     const op = Math.min(enter, exit);
     scenes.forEach((el, i) => {
+      el.classList.toggle('on', i === idx);
       el.style.visibility = i === idx ? 'visible' : 'hidden';
       el.style.opacity = i === idx ? op : '0';
       el.style.transform = i === idx ? 'scale(' + (1.03 - 0.03 * enter) + ')' : 'scale(1)';
