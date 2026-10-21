@@ -1,20 +1,20 @@
 {
   "app": {
-    "version": "1.11.0",
+    "version": "1.12.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.11.0/nailong-Setup-1.11.0.exe",
-    "sha256": "1242d33e14ed13d2d0c5f021d7190aee4143ab22df76d8e07f0a8c872c7d9dd9",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.12.0/nailong-Setup-1.12.0.exe",
+    "sha256": "6c5f11ef48a4376982cb843739be0c965e9682d048b34a94b98f45356276065d",
     "notes": {
-      "summary": "符号验算与更生动的图示。",
+      "summary": "准确性与解析加固。",
       "items": [
-        "讲解页加入 SymPy 符号验算，失败自动修正并显示结果",
-        "新增 circle / numberline 图示模板",
-        "视频场景加入淡入/缩放转场与图示推进",
-        "SymPy 输入白名单与危险词过滤"
+        "解题/阅卷走 JSON 模式，不支持时自动回退",
+        "三角形图示自动追加勾股校验",
+        "verify 启用 JSON 模式",
+        "三角形模板限定直角三角形"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.11.0/nailong-Setup-1.11.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.12.0/nailong-Setup-1.12.0.exe"
     ]
   },
   "plugins": [],
