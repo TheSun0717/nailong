@@ -10,6 +10,13 @@ const timers = [];
 
 const COMMAND_RE = /^[a-z0-9][a-z0-9-]{0,30}$/;
 
+function unregister(pluginId) {
+  for (const [name, c] of [...registry.entries()]) {
+    if (c.pluginId === pluginId) registry.delete(name);
+  }
+  loaded.delete(pluginId);
+}
+
 function init(options) {
   ctx = options;
   registry.clear();
@@ -26,6 +33,20 @@ function init(options) {
       if (p.firstParty && p.entry && p.entry.main) load(p);
     } catch (e) {
       console.warn(`[plugin-host] 加载 ${p.id} 失败：`, e.message);
+      unregister(p.id);
+      // 自动回滚到上一版；回滚后只重试一次
+      if (plugins.rollback(p.id)) {
+        try {
+          const restored = plugins.list(ctx.appVersion).find((x) => x.id === p.id);
+          if (restored && !restored.broken) {
+            registerDeclarative(restored);
+            if (restored.firstParty && restored.entry && restored.entry.main) load(restored);
+            console.warn(`[plugin-host] 已回滚 ${p.id} 到 ${restored.version}`);
+          }
+        } catch (e2) {
+          console.warn(`[plugin-host] ${p.id} 回滚后仍失败：`, e2.message);
+        }
+      }
     }
   }
 }

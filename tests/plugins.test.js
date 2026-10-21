@@ -69,6 +69,12 @@ list = plugins.list('2.0.0');
 assert.strictEqual(list[0].version, '1.1.0');
 assert.ok(fs.existsSync(path.join(installDir, '.bak-demo-plugin')), '更新应保留上一版备份');
 
+// 6. 回滚到上一版
+assert.strictEqual(plugins.rollback('demo-plugin'), true);
+list = plugins.list('2.0.0');
+assert.strictEqual(list[0].version, '1.0.0');
+assert.ok(!fs.existsSync(path.join(installDir, '.bak-demo-plugin')), '回滚后备份应被消费');
+
 plugins.remove('demo-plugin');
 assert.strictEqual(plugins.list('2.0.0').length, 0);
 

@@ -148,6 +148,18 @@ function remove(id) {
   return true;
 }
 
+// 更新失败时回到上一版（.bak 目录）
+function rollback(id) {
+  const target = path.join(pluginsDir, String(id));
+  const backup = path.join(pluginsDir, `.bak-${id}`);
+  if (!fs.existsSync(backup)) return false;
+  fs.rmSync(target, { recursive: true, force: true });
+  fs.renameSync(backup, target);
+  state.installed[id] = Date.now();
+  saveState();
+  return true;
+}
+
 function setEnabled(id, enabled) {
   if (!state.installed[id]) throw new Error('插件未安装：' + id);
   state.enabled[id] = !!enabled;
@@ -183,7 +195,7 @@ function ensureBundled(bundledDir) {
 }
 
 module.exports = {
-  init, list, installFromDir, remove, setEnabled, enabledIds,
+  init, list, installFromDir, remove, setEnabled, enabledIds, rollback,
   validateManifest, isCompatible, compareVersions, sha256, ensureBundled,
   ALLOWED_PERMISSIONS, INTRO_FIELDS,
 };
