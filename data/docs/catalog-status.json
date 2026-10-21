@@ -1,0 +1,182 @@
+{
+  "checkedAt": "2026-10-21T08:49:04.504Z",
+  "targets": [
+    {
+      "id": "deepseek",
+      "kind": "console",
+      "url": "https://platform.deepseek.com",
+      "ok": true,
+      "status": 200,
+      "final": "https://platform.deepseek.com/",
+      "ms": 235
+    },
+    {
+      "id": "deepseek",
+      "kind": "api",
+      "url": "https://api.deepseek.com/models",
+      "ok": true,
+      "status": 401,
+      "final": "https://api.deepseek.com/models",
+      "ms": 123
+    },
+    {
+      "id": "openai",
+      "kind": "console",
+      "url": "https://platform.openai.com",
+      "ok": true,
+      "status": 403,
+      "final": "https://platform.openai.com/",
+      "ms": 855
+    },
+    {
+      "id": "openai",
+      "kind": "api",
+      "url": "https://api.openai.com/v1/models",
+      "ok": false,
+      "error": "fetch failed",
+      "ms": 10584
+    },
+    {
+      "id": "anthropic",
+      "kind": "console",
+      "url": "https://console.anthropic.com",
+      "ok": true,
+      "status": 403,
+      "final": "https://platform.claude.com/",
+      "ms": 748
+    },
+    {
+      "id": "anthropic",
+      "kind": "api",
+      "url": "https://api.anthropic.com/v1/messages",
+      "ok": true,
+      "status": 403,
+      "final": "https://api.anthropic.com/v1/messages",
+      "ms": 257
+    },
+    {
+      "id": "gemini",
+      "kind": "console",
+      "url": "https://aistudio.google.com/apikey",
+      "ok": false,
+      "error": "fetch failed",
+      "ms": 10185
+    },
+    {
+      "id": "gemini",
+      "kind": "api",
+      "url": "https://generativelanguage.googleapis.com",
+      "ok": false,
+      "error": "fetch failed",
+      "ms": 10691
+    },
+    {
+      "id": "qwen",
+      "kind": "console",
+      "url": "https://dashscope.console.aliyun.com",
+      "ok": true,
+      "status": 200,
+      "final": "https://dashscope.console.aliyun.com/",
+      "ms": 313
+    },
+    {
+      "id": "qwen",
+      "kind": "api",
+      "url": "https://dashscope.aliyuncs.com/compatible-mode/v1/models",
+      "ok": true,
+      "status": 401,
+      "final": "https://dashscope.aliyuncs.com/compatible-mode/v1/models",
+      "ms": 59
+    },
+    {
+      "id": "kimi",
+      "kind": "console",
+      "url": "https://platform.moonshot.cn",
+      "ok": true,
+      "status": 200,
+      "final": "https://platform.kimi.com/",
+      "ms": 340
+    },
+    {
+      "id": "kimi",
+      "kind": "api",
+      "url": "https://api.moonshot.cn/v1/models",
+      "ok": true,
+      "status": 401,
+      "final": "https://api.moonshot.cn/v1/models",
+      "ms": 123
+    },
+    {
+      "id": "glm",
+      "kind": "console",
+      "url": "https://open.bigmodel.cn",
+      "ok": true,
+      "status": 200,
+      "final": "https://open.bigmodel.cn/",
+      "ms": 55
+    },
+    {
+      "id": "glm",
+      "kind": "api",
+      "url": "https://open.bigmodel.cn/api/paas/v4/models",
+      "ok": true,
+      "status": 401,
+      "final": "https://open.bigmodel.cn/api/paas/v4/models",
+      "ms": 53
+    },
+    {
+      "id": "doubao",
+      "kind": "console",
+      "url": "https://console.volcengine.com/ark",
+      "ok": true,
+      "status": 200,
+      "final": "https://console.volcengine.com/ark/region:cn-beijing/overview",
+      "ms": 880
+    },
+    {
+      "id": "doubao",
+      "kind": "api",
+      "url": "https://ark.cn-beijing.volces.com/api/v3/models",
+      "ok": true,
+      "status": 401,
+      "final": "https://ark.cn-beijing.volces.com/api/v3/models",
+      "ms": 72
+    },
+    {
+      "id": "openrouter",
+      "kind": "console",
+      "url": "https://openrouter.ai/keys",
+      "ok": true,
+      "status": 200,
+      "final": "https://openrouter.ai/sign-in?redirect_url=https%3A%2F%2Fopenrouter.ai%2Fworkspace-redirect%2Fkeys",
+      "ms": 545
+    },
+    {
+      "id": "openrouter",
+      "kind": "api",
+      "url": "https://openrouter.ai/api/v1/models",
+      "ok": true,
+      "status": 200,
+      "final": "https://openrouter.ai/api/v1/models",
+      "ms": 57
+    },
+    {
+      "id": "siliconflow",
+      "kind": "console",
+      "url": "https://cloud.siliconflow.cn",
+      "ok": true,
+      "status": 200,
+      "final": "https://account.siliconflow.cn/zh/login?redirect=https%3A%2F%2Fcloud.siliconflow.cn%2F%3F",
+      "ms": 694
+    },
+    {
+      "id": "siliconflow",
+      "kind": "api",
+      "url": "https://api.siliconflow.cn/v1/models",
+      "ok": true,
+      "status": 401,
+      "final": "https://api.siliconflow.cn/v1/models",
+      "ms": 132
+    }
+  ]
+}

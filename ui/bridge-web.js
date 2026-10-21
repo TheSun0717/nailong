@@ -7,6 +7,7 @@
   const DEFAULT_CFG = {
     apiKey: '',
     model: 'deepseek-v4-pro',
+    baseUrl: 'https://api.deepseek.com',
     openAtLogin: false,
     hasSeenHint: true,
     userAvatar: false,
@@ -77,7 +78,8 @@
     }
     if (STUDY_RE.test(String(q || ''))) send({ meta: { mode: 'study', refs: [] } });
     try {
-      const res = await fetch('https://api.deepseek.com/chat/completions', {
+      const base = String(config.baseUrl || 'https://api.deepseek.com').replace(/\/+$/, '');
+      const res = await fetch(base.endsWith('/chat/completions') ? base : base + '/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.apiKey },
         body: JSON.stringify({
@@ -146,7 +148,8 @@
       const fixed = matchFixed(q);
       if (fixed) return { text: fixed, local: true };
       if (!config.apiKey) return { text: '先在设置里填一下 DeepSeek Key 吧～', local: true };
-      const res = await fetch('https://api.deepseek.com/chat/completions', {
+      const base = String(config.baseUrl || 'https://api.deepseek.com').replace(/\/+$/, '');
+      const res = await fetch(base.endsWith('/chat/completions') ? base : base + '/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.apiKey },
         body: JSON.stringify({

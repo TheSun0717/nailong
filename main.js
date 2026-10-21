@@ -13,6 +13,7 @@ const updater = require('./features/updater');
 const plugins = require('./features/plugins');
 const pluginHost = require('./features/plugin-host');
 const store = require('./features/store');
+const providers = require('./features/providers');
 
 // 开发环境用独立 profile：避免和已安装版本抢单实例锁，也避免污染正式配置
 if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'nailong-dev'));
@@ -61,6 +62,7 @@ const ocrScript = app.isPackaged
 const DEFAULT_CONFIG = {
   apiKey: '', // 不预置 Key：每位用户在自己的电脑上填写（公开仓库不能带凭证）
   model: 'deepseek-v4-pro',
+  baseUrl: 'https://api.deepseek.com',
   openAtLogin: true,
   hasSeenHint: false,
   userAvatar: false,
@@ -266,7 +268,10 @@ function registerIpc() {
     }
     try {
       let systemPrompt;
-      if (study.shouldUse(q)) {
+      if (providers.shouldUse(q)) {
+        systemPrompt = providers.buildSystem(q);
+        send({ meta: { mode: 'providers' } });
+      } else if (study.shouldUse(q)) {
         const ctx = study.buildStudyContext(q, config);
         systemPrompt = ctx.system;
         send({ meta: { mode: 'study', refs: ctx.refs.map((r) => ({ source: r.source, school: r.school })) } });
@@ -355,7 +360,7 @@ function registerIpc() {
   });
   ipcMain.handle('open-external', (_e, url) => {
     const u = String(url || '');
-    if (!/^https?:\/\//i.test(u)) return false;
+    if (!/^(https?:|mailto:)/i.test(u)) return false;
     shell.openExternal(u);
     return true;
   });
@@ -491,6 +496,65 @@ function registerIpc() {
     initPluginHost();
     return true;
   });
+  ipcMain.handle('api-test', async () => {
+    if (!config.apiKey) return { ok: false, error: '还没有填 API Key' };
+    try {
+      const text = await ai.askDeepSeek('只回复 ok 两个字母', config, '你是连通性测试助手，只回复 ok。', 0);
+      return { ok: true, sample: String(text || '').slice(0, 40) };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('provider-doc', () => {
+    try {
+      let status = null;
+      try {
+        status = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'docs', 'catalog-status.json'), 'utf8'));
+      } catch {}
+      return { ok: true, markdown: providers.doc(), status };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle('feedback-send', async (_e, payload) => {
+    const text = String((payload && payload.text) || '').trim();
+    const email = String((payload && payload.email) || '').trim();
+    if (text.length < 3) return { ok: false, error: '请先写下问题或建议' };
+    const body = {
+      name: '奶龙用户',
+      email: email || 'noreply@example.com',
+      message: text,
+      _subject: '奶龙问题反馈',
+      _template: 'table',
+      _captcha: 'false',
+    };
+    try {
+      const res = await fetch('https://formsubmit.co/ajax/2491695554@qq.com', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(15000),
+      });
+      const j = await res.json().catch(() => ({}));
+      const success = j && (j.success === true || j.success === 'true');
+      if (res.ok && success) {
+        return { ok: true, needsConfirm: /confirm|激活|verify/i.test(String(j.message || '')) };
+      }
+      return {
+        ok: false,
+        error: (j && j.message) || `HTTP ${res.status}`,
+        mailto: 'mailto:2491695554@qq.com?subject=' + encodeURIComponent('奶龙问题反馈') + '&body=' + encodeURIComponent(text),
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        error: e.message,
+        mailto: 'mailto:2491695554@qq.com?subject=' + encodeURIComponent('奶龙问题反馈') + '&body=' + encodeURIComponent(text),
+      };
+    }
+  });
+
   ipcMain.handle('store-list', async () => {
     try { return { ok: true, items: await store.list(app.getVersion()) }; }
     catch (e) { return { ok: false, error: e.message }; }
@@ -618,6 +682,14 @@ async function captureUi() {
     await wait(400);
     await shot(chatWin, 'chat-settings.png');
     await chatWin.webContents.executeJavaScript("document.querySelector('#cancel-key').click()");
+    await wait(250);
+    await chatWin.webContents.executeJavaScript("document.querySelector('#settings-btn').click(); document.querySelector('#open-provider-doc').click()");
+    await wait(1000);
+    await shot(chatWin, 'chat-doc.png');
+    await chatWin.webContents.executeJavaScript("document.querySelector('#doc-close').click(); document.querySelector('#open-feedback').click()");
+    await wait(400);
+    await shot(chatWin, 'chat-feedback.png');
+    await chatWin.webContents.executeJavaScript("document.querySelector('#feedback-cancel').click(); document.querySelector('#cancel-key').click()");
     await wait(250);
     await chatWin.webContents.executeJavaScript("document.querySelector('#plugins-btn').click()");
     await wait(500);

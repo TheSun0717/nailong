@@ -367,6 +367,27 @@
   .update-notes ul { padding-left: 1.2em; margin: 6px 0; }
   .update-notes p { margin: 4px 0; }
 
+  .api-hint { margin-top: -2px; color: #8A5A00; }
+  .modal textarea {
+    width: 100%; border: 1.5px solid var(--line); border-radius: 10px; padding: 8px 11px;
+    font-size: 12.5px; font-family: inherit; color: var(--ink); background: var(--paper);
+    outline: none; resize: vertical; line-height: 1.6;
+  }
+  .modal textarea:focus { border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(255, 201, 60, .22); }
+  .doc-card { width: 640px; max-width: calc(100vw - 32px); }
+  .doc-body { max-height: 60vh; overflow-y: auto; font-size: 12px; line-height: 1.65; padding-right: 4px; }
+  .doc-body h1 { font-size: 16px; margin: 14px 0 6px; }
+  .doc-body h2 { font-size: 14px; margin: 14px 0 6px; padding-top: 8px; border-top: 1.5px dashed var(--line); }
+  .doc-body h3 { font-size: 13px; margin: 10px 0 4px; }
+  .doc-body p { margin: 5px 0; }
+  .doc-body ul, .doc-body ol { padding-left: 1.3em; margin: 5px 0; }
+  .doc-body li { margin: 3px 0; }
+  .doc-body code { background: #FFF0C8; border-radius: 4px; padding: 1px 4px; font-size: 11.5px; }
+  .doc-body pre { background: #3A2A1A; color: #FFF3DA; border-radius: 8px; padding: 8px 10px; overflow-x: auto; }
+  .doc-body pre code { background: transparent; color: inherit; padding: 0; }
+  .doc-body table { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+  .doc-body th, .doc-body td { border: 1px solid var(--line); padding: 4px 6px; }
+  .doc-body a { color: #A96F00; text-decoration: underline; }
   .plugin-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
   .plugin-tabs .ptab {
     flex: 1; border: 1.5px solid var(--line); background: var(--paper); border-radius: 10px;
@@ -542,16 +563,28 @@
 
   <div id="settings-modal" class="modal">
     <div class="card">
-      <h3>⚙ 设置 DeepSeek 接口</h3>
+      <h3>⚙ 设置大模型接口</h3>
       <label>API Key</label>
       <input id="api-key" type="password" placeholder="sk-...">
+      <div class="tip api-hint">可以试着询问：怎样进行 DeepSeek 的 API 配置操作</div>
+      <label>API Base（OpenAI 兼容地址）</label>
+      <input id="base-url" placeholder="https://api.deepseek.com">
       <label>模型（可留空）</label>
       <input id="model-input" placeholder="deepseek-chat">
       <div class="btns">
         <button id="cancel-key">取消</button>
         <button id="save-key">保存</button>
       </div>
+      <div class="btns">
+        <button id="test-api">测试连接</button>
+      </div>
       <div class="tip">Key 只存在本机，不会上传。到 platform.deepseek.com 注册充值后即可获取。</div>
+      <div class="btns">
+        <button id="open-provider-doc">📖 服务商配置文档</button>
+      </div>
+      <div class="btns">
+        <button id="open-feedback">📮 问题反馈</button>
+      </div>
 
       <h3 class="sec-title">🐣 桌宠</h3>
       <label>大小 <span id="pet-scale-val">1.0×</span></label>
@@ -567,6 +600,31 @@
       </div>
 
       <button id="clear-conv">清空对话记录</button>
+    </div>
+  </div>
+
+  <div id="doc-modal" class="modal">
+    <div class="card doc-card">
+      <h3>📖 服务商配置</h3>
+      <div id="doc-status" class="tip"></div>
+      <div id="doc-body" class="doc-body"></div>
+      <div class="btns"><button id="doc-close">关闭</button></div>
+    </div>
+  </div>
+
+  <div id="feedback-modal" class="modal">
+    <div class="card">
+      <h3>📮 问题反馈</h3>
+      <div class="tip" style="margin-top:0">如有任何使用中的问题或者小建议请联系作者</div>
+      <label>你的问题或建议</label>
+      <textarea id="feedback-text" rows="5" placeholder="写下你遇到的问题，或者想要的功能…"></textarea>
+      <label>你的邮箱（选填，方便回复）</label>
+      <input id="feedback-email" placeholder="you@example.com">
+      <div class="btns">
+        <button id="feedback-cancel">取消</button>
+        <button id="feedback-send">发送</button>
+      </div>
+      <div class="tip">作者微信：<b>FromTheSun0717</b><br>首次提交会收到一封确认邮件，点一下确认后才会继续转发。</div>
     </div>
   </div>
 
@@ -796,6 +854,15 @@
       tag.textContent = `🎓 学习模式${p.meta.refs.length ? ` · 引用 ${p.meta.refs.length} 份资料` : ' · 暂无本地资料'}`;
       st.wrap.querySelector('.stack').insertBefore(tag, st.bubble);
       if (st.q) addAction(st.wrap.querySelector('.stack'), '补充 B 站视频', () => supplement(st.q));
+    }
+
+    if (p.meta && p.meta.mode === 'providers' && !st.providerTagged) {
+      st.providerTagged = true;
+      const tag = document.createElement('div');
+      tag.className = 'mode-tag';
+      tag.textContent = '🔑 API 配置';
+      st.wrap.querySelector('.stack').insertBefore(tag, st.bubble);
+      addAction(st.wrap.querySelector('.stack'), '打开设置', openSettings);
     }
 
     if (p.delta) {
@@ -1139,6 +1206,7 @@
   async function openSettings() {
     $('#api-key').value = currentConfig.apiKey || '';
     $('#model-input').value = currentConfig.model || 'deepseek-chat';
+    $('#base-url').value = currentConfig.baseUrl || 'https://api.deepseek.com';
     $('#pet-scale').value = currentConfig.petScale || 1;
     $('#pet-canvas').value = currentConfig.petCanvas || 480;
     $('#pet-bubble').checked = currentConfig.petBubble !== false;
@@ -1157,13 +1225,31 @@
   $('#pet-bubble').addEventListener('change', applyPetSettings);
   $('#settings-btn').onclick = openSettings;
   $('#cancel-key').onclick = closeSettings;
-  $('#save-key').onclick = async () => {
+  async function saveApiSettings() {
     const apiKey = $('#api-key').value.trim();
     const model = $('#model-input').value.trim() || 'deepseek-chat';
-    await window.nailong.setConfig({ apiKey, model });
+    const baseUrl = $('#base-url').value.trim() || 'https://api.deepseek.com';
+    await window.nailong.setConfig({ apiKey, model, baseUrl });
     currentConfig = await window.nailong.getConfig();
+    return apiKey;
+  }
+
+  $('#save-key').onclick = async () => {
+    const apiKey = await saveApiSettings();
     closeSettings();
     addMsg('nailong', apiKey ? '大脑接好啦，吼吼～现在可以和我随便聊啦！' : '已清空 Key，我现在只能回答固定问题啦。');
+  };
+
+  $('#test-api').onclick = async () => {
+    const btn = $('#test-api');
+    btn.disabled = true;
+    btn.textContent = '测试中…';
+    await saveApiSettings();
+    const r = await window.nailong.testApi();
+    btn.disabled = false;
+    btn.textContent = '测试连接';
+    if (r && r.ok) toast('连接成功：' + (r.sample || 'ok'));
+    else toast('连接失败：' + ((r && r.error) || '未知错误'));
   };
   $('#settings-modal').addEventListener('click', (e) => {
     if (e.target.id === 'settings-modal') closeSettings();
@@ -1475,6 +1561,53 @@
   if (window.nailong.onPluginNotify) {
     window.nailong.onPluginNotify((t) => toast(String(t || '')));
   }
+
+  /* ---------- 服务商配置 / 反馈 ---------- */
+  async function openProviderDoc() {
+    const box = $('#doc-body');
+    const status = $('#doc-status');
+    box.textContent = '加载中…';
+    status.textContent = '';
+    const r = await window.nailong.getProviderDoc();
+    if (!r || !r.ok) {
+      box.textContent = '读取失败：' + ((r && r.error) || '未知错误');
+    } else {
+      box.innerHTML = renderMd(r.markdown || '');
+      if (r.status && r.status.checkedAt) {
+        const fails = (r.status.targets || []).filter((t) => !t.ok).map((t) => `${t.id} ${t.kind}`);
+        const uniq = [...new Set(fails)];
+        status.textContent = '上次校验：' + new Date(r.status.checkedAt).toLocaleString('zh-CN') +
+          (uniq.length ? ' · 当前网络不可达：' + uniq.join('、') : ' · 全部可达');
+      }
+    }
+    $('#doc-modal').classList.add('open');
+  }
+
+  $('#open-provider-doc').onclick = openProviderDoc;
+  $('#doc-close').onclick = () => $('#doc-modal').classList.remove('open');
+
+  $('#open-feedback').onclick = () => $('#feedback-modal').classList.add('open');
+  $('#feedback-cancel').onclick = () => $('#feedback-modal').classList.remove('open');
+  $('#feedback-send').onclick = async () => {
+    const text = $('#feedback-text').value.trim();
+    if (text.length < 3) { toast('请先写下问题或建议'); return; }
+    const btn = $('#feedback-send');
+    btn.disabled = true;
+    btn.textContent = '发送中…';
+    const res = await window.nailong.sendFeedback({ text, email: $('#feedback-email').value.trim() });
+    btn.disabled = false;
+    btn.textContent = '发送';
+    if (res && res.ok) {
+      toast(res.needsConfirm ? '已提交，请在邮箱里点确认链接' : '发送成功，谢谢反馈！');
+      $('#feedback-modal').classList.remove('open');
+      $('#feedback-text').value = '';
+    } else {
+      toast('发送失败：' + ((res && res.error) || '网络问题'));
+      if (res && res.mailto && confirm('自动发送失败，是否用邮件客户端打开？')) {
+        window.nailong.openExternal(res.mailto);
+      }
+    }
+  };
 
   /* ---------- 学习助手 ---------- */
   function openStudy() {

@@ -50,8 +50,13 @@ function buildBody(question, config, stream, systemPrompt, temperature) {
   });
 }
 
+function endpoint(config) {
+  const base = String((config && config.baseUrl) || 'https://api.deepseek.com').replace(/\/+$/, '');
+  return base.endsWith('/chat/completions') ? base : base + '/chat/completions';
+}
+
 async function request(question, config, stream, systemPrompt, temperature) {
-  const res = await fetch('https://api.deepseek.com/chat/completions', {
+  const res = await fetch(endpoint(config), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
