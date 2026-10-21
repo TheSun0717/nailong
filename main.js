@@ -15,6 +15,7 @@ const pluginHost = require('./features/plugin-host');
 const store = require('./features/store');
 const providers = require('./features/providers');
 const workshop = require('./features/workshop');
+const xhs = require('./features/xhs');
 
 // 开发环境用独立 profile：避免和已安装版本抢单实例锁，也避免污染正式配置
 if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'nailong-dev'));
@@ -34,6 +35,36 @@ const pluginsDir = path.join(dataDir, 'plugins');
 const pluginStatePath = path.join(dataDir, 'plugin-state.json');
 plugins.init(pluginsDir, pluginStatePath);
 plugins.ensureBundled(path.join(__dirname, 'plugins'));
+
+async function ensureXhsConsent() {
+  if (config.xhsConsent === 'yes') return true;
+  if (config.xhsConsent === 'no') return false;
+  const r = await dialog.showMessageBox(chatWin || petWin, {
+    type: 'question',
+    buttons: ['允许', '不允许'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+    title: '小红书资料采集',
+    message: '是否允许奶龙读取你在小红书的公开搜索结果？',
+    detail: '奶龙会打开一个内置浏览器窗口，使用你自己的登录状态；不保存账号密码，也可以随时在设置里更改。',
+  });
+  const ok = r.response === 0;
+  config.xhsConsent = ok ? 'yes' : 'no';
+  saveConfig();
+  return ok;
+}
+
+async function webSearch(platform, q) {
+  const p = String(platform || '').toLowerCase();
+  if (p === 'bilibili') return bili.search(q);
+  if (p === 'xiaohongshu') {
+    if (!(await ensureXhsConsent())) throw new Error('你选择了不允许采集小红书');
+    const rows = await xhs.search(q);
+    return rows.map((r) => ({ title: r.title, subtitle: `${r.author} · 赞 ${r.likes}`, url: r.url }));
+  }
+  throw new Error('不支持的平台：' + platform);
+}
 
 function initPluginHost() {
   pluginHost.init({
@@ -57,7 +88,7 @@ function initPluginHost() {
       },
       aiAsk: async (p) => ({ text: await ai.askDeepSeek(p, config) }),
       openExternal: (u) => { if (/^https?:\/\//i.test(u)) shell.openExternal(u); },
-      webSearch: async (platform, q) => (String(platform).toLowerCase() === 'bilibili' ? bili.search(q) : []),
+      webSearch: (platform, q) => webSearch(platform, q),
       videoMake: async (topic) => video.generate(topic, config, videoDir),
       storeInstall: async () => ({ ok: false, error: '商店安装将在下一版开放' }),
     },
@@ -82,6 +113,7 @@ const DEFAULT_CONFIG = {
   petScale: 1, // 桌宠缩放 0.5 - 2.0
   petCanvas: 480, // 桌宠窗口画布大小（手动可调，不随缩放变化）
   petBubble: true, // 自动气泡开关
+  xhsConsent: '', // 小红书采集授权：'' 每次询问 / 'yes' / 'no'
   profile: { level: '', region: '', school: '', major: '', grade: '' },
 };
 
@@ -843,6 +875,26 @@ app.whenReady().then(() => {
   createPet();
   createTray();
   initPluginHost();
+  if (process.argv.includes('--xhstest')) {
+    (async () => {
+      try {
+        const w = xhs.open();
+        await w.loadURL(xhs.searchUrl('北邮 人工智能'));
+        await new Promise((r) => setTimeout(r, 8000));
+        const st = await xhs.state(w);
+        console.log('[xhstest] state=', JSON.stringify(st));
+        try {
+          fs.mkdirSync(path.join(__dirname, 'shots'), { recursive: true });
+          fs.writeFileSync(path.join(__dirname, 'shots', 'xhs-window.png'), (await w.webContents.capturePage()).toPNG());
+        } catch {}
+        app.exit(0);
+      } catch (e) {
+        console.error('[xhstest] ERR', e.message);
+        app.exit(1);
+      }
+    })();
+    return;
+  }
   if (process.argv.includes('--studyplugin')) {
     (async () => {
       try {

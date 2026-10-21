@@ -1,0 +1,23 @@
+{
+  "id": "xhs-search",
+  "name": "小红书搜索",
+  "version": "1.0.0",
+  "minAppVersion": "1.7.1",
+  "description": "在奶龙里搜小红书笔记，结果可以直接打开。",
+  "intro": {
+    "what": "它让奶龙会搜小红书笔记，比如搜「北邮 人工智能」「线性代数 笔记」。",
+    "how": "输入 /xhs 关键词；第一次会先问你是否允许采集，同意后会打开小红书窗口让你登录一次。",
+    "whatHappens": "登录后奶龙会自动抓取搜索结果，列出标题、作者和点赞，点「打开」就能看。",
+    "ifFails": "先在小红书窗口里完成登录；被安全验证时按页面提示操作后再试；也可以在设置里改采集授权。"
+  },
+  "permissions": ["chat", "web", "ui"],
+  "capabilities": [],
+  "commands": [
+    {
+      "name": "xhs",
+      "description": "搜索小红书笔记，例如 /xhs 北邮 人工智能",
+      "action": { "type": "web.search", "platform": "xiaohongshu", "queryFrom": "args" }
+    }
+  ],
+  "firstParty": false
+}

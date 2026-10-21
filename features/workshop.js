@@ -5,7 +5,7 @@ const ai = require('../ai');
 const plugins = require('./plugins');
 
 const ACTIONS = {
-  'web.search': { perm: 'web', platforms: ['bilibili'] },
+  'web.search': { perm: 'web', platforms: ['bilibili', 'xiaohongshu'] },
   'ai.ask': { perm: 'ai' },
   notify: { perm: 'notify' },
 };
@@ -16,7 +16,7 @@ function systemPrompt() {
   return `你是奶龙的插件设计师。根据用户描述，输出一个「声明式插件」JSON，只输出 JSON，不要 Markdown 围栏。
 
 允许的插件能力（action.type）只有三种：
-1. {"type":"web.search","platform":"bilibili","queryFrom":"args"} —— 搜 B 站，返回视频列表面板（需要 web + ui 权限）
+1. {"type":"web.search","platform":"bilibili" 或 "xiaohongshu","queryFrom":"args"} —— 搜 B 站 / 小红书，返回列表面板（需要 web + ui 权限；小红书需要用户登录）
 2. {"type":"ai.ask","prompt":"提示词，用 {{args}} 插入用户输入"} —— 调大模型回答（需要 ai 权限）
 3. {"type":"notify","text":"通知内容"} —— 发一条通知（需要 notify 权限）
 
@@ -82,7 +82,7 @@ function validateSpec(spec, appVersion) {
     if (!rule) { errors.push('不支持的动作类型：' + a.type); continue; }
     if (!perms.has(rule.perm)) errors.push(`命令 ${c.name} 需要 ${rule.perm} 权限`);
     if (a.type === 'web.search') {
-      if (!rule.platforms.includes(a.platform)) errors.push('web.search 只支持 bilibili');
+      if (!rule.platforms.includes(a.platform)) errors.push('web.search 只支持 bilibili / xiaohongshu');
       if (!perms.has('ui')) errors.push('web.search 需要 ui 权限');
       if (a.queryFrom !== 'args') errors.push('web.search 的 queryFrom 必须是 args');
     }

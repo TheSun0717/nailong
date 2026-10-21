@@ -61,7 +61,7 @@ async function runDeclarative(manifest, cmd, args) {
     const items = await ctx.caps.webSearch(a.platform || 'bilibili', q);
     const list = (items || []).map((it) => ({
       title: it.title,
-      subtitle: `${it.up || ''} · 播放 ${it.play || 0}`,
+      subtitle: it.subtitle || `${it.up || ''} · 播放 ${it.play || 0}`,
       action: it.url ? { type: 'open', url: it.url } : undefined,
     }));
     return {

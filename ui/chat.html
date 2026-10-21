@@ -621,6 +621,14 @@
         <button id="open-feedback">📮 问题反馈</button>
       </div>
 
+      <h3 class="sec-title">📥 资料采集</h3>
+      <label>小红书采集授权</label>
+      <select id="xhs-consent">
+        <option value="">每次询问</option>
+        <option value="yes">允许</option>
+        <option value="no">不允许</option>
+      </select>
+
       <h3 class="sec-title">🐣 桌宠</h3>
       <label>大小 <span id="pet-scale-val">1.0×</span></label>
       <input id="pet-scale" type="range" min="0.5" max="2" step="0.1" value="1">
@@ -1364,6 +1372,7 @@
     $('#api-key').value = currentConfig.apiKey || '';
     $('#model-input').value = currentConfig.model || 'deepseek-chat';
     $('#base-url').value = currentConfig.baseUrl || 'https://api.deepseek.com';
+    $('#xhs-consent').value = currentConfig.xhsConsent || '';
     $('#pet-scale').value = currentConfig.petScale || 1;
     $('#pet-canvas').value = currentConfig.petCanvas || 480;
     $('#pet-bubble').checked = currentConfig.petBubble !== false;
@@ -1375,6 +1384,11 @@
     $('#settings-modal').classList.remove('open');
   }
 
+  $('#xhs-consent').addEventListener('change', async (e) => {
+    await window.nailong.setConfig({ xhsConsent: e.target.value });
+    currentConfig = await window.nailong.getConfig();
+    toast(e.target.value === 'yes' ? '已允许小红书采集' : (e.target.value === 'no' ? '已禁止小红书采集' : '下次会再询问'));
+  });
   $('#pet-scale').addEventListener('input', syncPetLabels);
   $('#pet-canvas').addEventListener('input', syncPetLabels);
   $('#pet-scale').addEventListener('change', applyPetSettings);
