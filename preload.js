@@ -15,6 +15,9 @@ contextBridge.exposeInMainWorld('nailong', {
   loadConversation: () => ipcRenderer.invoke('conv-load'),
   saveConversation: (messages) => ipcRenderer.invoke('conv-save', messages),
   clearConversation: () => ipcRenderer.invoke('conv-clear'),
+  loadTabs: () => ipcRenderer.invoke('tabs-load'),
+  saveTabs: (data) => ipcRenderer.invoke('tabs-save', data),
+  clearTabs: () => ipcRenderer.invoke('tabs-clear'),
 
   // 学习知识库
   saveNote: (text) => ipcRenderer.invoke('save-note', text),

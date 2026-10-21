@@ -248,7 +248,8 @@ data/video|explain/      产物
 - [x] 桌宠设置（0.5–2.0 缩放、独立画布 360–640、气泡开关）
 - [x] 问题反馈（FormSubmit 直投 + 作者微信）
 - [x] 供应商文档（应用内查看）+ API Key 助手 + 可配置 Base URL + 测试连接
-- [ ] 多标签；safeStorage 加密 Key
+- [x] 多标签任务（独立会话、后台继续、持久化）
+- [x] safeStorage 加密 API Key（DPAPI，自动迁移旧明文）
 - [ ] 生成型插件五道闸 + 试衣间
 - [ ] 预渲染进化动画
 

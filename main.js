@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, screen, nativeImage, globalShortcut } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, screen, nativeImage, globalShortcut, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile, spawn } = require('child_process');
@@ -23,6 +23,7 @@ const configPath = path.join(userDataDir, 'config.json');
 const filesDir = path.join(userDataDir, 'files');
 const dataDir = path.join(userDataDir, 'data');
 const convPath = path.join(dataDir, 'conversations', 'main.json');
+const tabsPath = path.join(dataDir, 'conversations', 'tabs.json');
 const explainDir = path.join(dataDir, 'explain');
 const videoDir = path.join(dataDir, 'video');
 kb.init(path.join(dataDir, 'kb'));
@@ -98,7 +99,31 @@ function loadConfig() {
   catch { return { ...DEFAULT_CONFIG }; }
 }
 function saveConfig() {
-  try { fs.mkdirSync(userDataDir, { recursive: true }); fs.writeFileSync(configPath, JSON.stringify(config, null, 2)); } catch {}
+  try {
+    fs.mkdirSync(userDataDir, { recursive: true });
+    const out = { ...config };
+    // API Key 用系统级加密（Windows DPAPI）落盘；不写明文
+    if (out.apiKey && safeStorage.isEncryptionAvailable()) {
+      out.apiKeyEnc = safeStorage.encryptString(String(out.apiKey)).toString('base64');
+      delete out.apiKey;
+    }
+    fs.writeFileSync(configPath, JSON.stringify(out, null, 2));
+  } catch {}
+}
+
+// app ready 之后才能用 safeStorage：解密到内存，并把旧的明文 Key 迁移成密文
+function unlockSecrets() {
+  if (config.apiKeyEnc) {
+    try {
+      if (safeStorage.isEncryptionAvailable()) {
+        config.apiKey = safeStorage.decryptString(Buffer.from(config.apiKeyEnc, 'base64'));
+      }
+    } catch (e) {
+      console.warn('[奶龙] API Key 解密失败：', e.message);
+    }
+    delete config.apiKeyEnc;
+  }
+  if (config.apiKey && safeStorage.isEncryptionAvailable()) saveConfig();
 }
 function assetUrl(rel) {
   return pathToFileURL(path.join(assetsRoot, rel)).href;
@@ -406,6 +431,20 @@ function registerIpc() {
     try { fs.rmSync(convPath, { force: true }); } catch {}
     return true;
   });
+  ipcMain.handle('tabs-load', () => {
+    try { return JSON.parse(fs.readFileSync(tabsPath, 'utf8')); } catch { return null; }
+  });
+  ipcMain.handle('tabs-save', (_e, data) => {
+    try {
+      fs.mkdirSync(path.dirname(tabsPath), { recursive: true });
+      fs.writeFileSync(tabsPath, JSON.stringify(data));
+    } catch {}
+    return true;
+  });
+  ipcMain.handle('tabs-clear', () => {
+    try { fs.rmSync(tabsPath, { force: true }); } catch {}
+    return true;
+  });
 
   ipcMain.handle('avatar-pick', async () => {
     const r = await dialog.showOpenDialog(chatWin, {
@@ -672,6 +711,7 @@ async function captureUi() {
       await petWin.webContents.executeJavaScript("document.body.style.setProperty('--pet-scale', 1); setPose('sleep')");
     }
     try { fs.rmSync(convPath, { force: true }); } catch {}
+    try { fs.rmSync(tabsPath, { force: true }); } catch {}
     openChat();
     await wait(1200);
     chatWin.show();
@@ -725,6 +765,9 @@ async function captureUi() {
     })()`);
     await wait(600);
     await shot(chatWin, 'chat.png');
+    await chatWin.webContents.executeJavaScript("createTab(); addMsg('me','帮我做一份期末复习计划'); addMsg('nailong','好的，先按 4 周排：第 1 周过一遍知识点，第 2 周做题…')");
+    await wait(500);
+    await shot(chatWin, 'chat-tabs.png');
   } catch (e) {
     console.error('[capture] failed:', e);
   } finally {
@@ -741,6 +784,7 @@ async function selfTest() {
   const isDefault = question === '你是谁';
   try {
     try { fs.rmSync(convPath, { force: true }); } catch {}
+    try { fs.rmSync(tabsPath, { force: true }); } catch {}
     openChat();
     await wait(1500);
     await chatWin.webContents.executeJavaScript(
@@ -763,6 +807,7 @@ async function selfTest() {
 
 app.whenReady().then(() => {
   if (!gotSingleLock) return;
+  unlockSecrets();
   registerIpc();
   createPet();
   createTray();

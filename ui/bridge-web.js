@@ -169,6 +169,9 @@
     loadConversation: async () => read(CONV_KEY, []),
     saveConversation: async (messages) => { write(CONV_KEY, messages); return true; },
     clearConversation: async () => { localStorage.removeItem(CONV_KEY); return true; },
+    loadTabs: async () => { try { return JSON.parse(localStorage.getItem('nailong.tabs')); } catch { return null; } },
+    saveTabs: async (data) => { try { localStorage.setItem('nailong.tabs', JSON.stringify(data)); } catch {} return true; },
+    clearTabs: async () => { localStorage.removeItem('nailong.tabs'); return true; },
 
     pickAvatar: async () => {
       const url = await pickImage();
