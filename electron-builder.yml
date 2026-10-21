@@ -19,6 +19,8 @@ extraResources:
     to: assets
   - from: tools/ocr.py
     to: tools/ocr.py
+  - from: tools/sympy_check.py
+    to: tools/sympy_check.py
 
 win:
   target:

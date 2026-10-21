@@ -1,6 +1,7 @@
 // 教学可视化 v2：结构化解题 → 二次校验 → 固定动画模板（SVG 图示 + 分步动画）。
 const fs = require('fs');
 const path = require('path');
+const { execFile } = require('child_process');
 const ai = require('../ai');
 
 const SOLVE_SYSTEM = `你是严谨的学科老师。解出题目并输出一张「解题卡」JSON，只输出 JSON，不要 Markdown 围栏。
@@ -21,7 +22,8 @@ const SOLVE_SYSTEM = `你是严谨的学科老师。解出题目并输出一张�
   ],
   "answer": "最终答案",
   "pitfalls": ["易错点1", "..."],
-  "checkpoint": "一句话自测"
+  "checkpoint": "一句话自测",
+  "checks": [{"expr": "3^2+4^2", "equals": "25", "vars": {}}]
 }
 
 要求：
@@ -31,9 +33,12 @@ const SOLVE_SYSTEM = `你是严谨的学科老师。解出题目并输出一张�
   - triangle: {"a":"3","b":"4","c":"5","aLabel":"3","bLabel":"4","cLabel":"5"}
   - axes: {"points":[{"x":0,"y":0,"label":"O"}],"curve":{"type":"line|parabola","a":1,"b":0,"c":0}}
   - flow: {"nodes":["步骤A","步骤B","步骤C"]}
+  - circle: {"r":"5","angle":"60","label":"r=5"}
+  - numberline: {"min":-3,"max":3,"marks":[{"x":0,"label":"0"},{"x":2,"label":"2"}]}
   - 不需要图就用 {"type":"none"}
 - 公式不要用 LaTeX 定界符；用普通文本。
-- 每个步骤的 visual 都必须给；至少两个步骤要有图示（triangle/axes/flow），不能全是 none。
+- 每个步骤的 visual 都必须给；至少两个步骤要有图示（triangle/axes/flow/circle/numberline），不能全是 none。
+- checks 至少给一条对最终答案的数值验算（expr/equals 用普通运算符，^ 表示乘方，vars 可选）；没有可验算的式子就给空数组。
 - 只输出 JSON。`;
 
 const VERIFY_SYSTEM = `你是严格的阅卷老师。检查下面解题卡的每一步推导和最终答案是否正确、是否与题目条件一致。
@@ -75,6 +80,11 @@ function normalizeSpec(spec) {
     answer: String(s.answer || '').slice(0, 400),
     pitfalls: (Array.isArray(s.pitfalls) ? s.pitfalls : []).slice(0, 6).map((x) => String(x).slice(0, 160)),
     checkpoint: String(s.checkpoint || '').slice(0, 200),
+    checks: (Array.isArray(s.checks) ? s.checks : []).slice(0, 6).filter((c) => c && c.expr).map((c) => ({
+      expr: String(c.expr).slice(0, 200),
+      equals: String(c.equals == null ? '0' : c.equals).slice(0, 200),
+      vars: c.vars && typeof c.vars === 'object' ? c.vars : {},
+    })),
   };
 }
 
@@ -102,6 +112,41 @@ async function solve(topic, config, imagePath) {
   return normalizeSpec(spec);
 }
 
+function runChecks(checks, script) {
+  return new Promise((resolve) => {
+    if (!Array.isArray(checks) || !checks.length || !script || !fs.existsSync(script)) {
+      return resolve({ allOk: true, note: '', failed: [] });
+    }
+    execFile('python', [script, JSON.stringify({ checks })], { encoding: 'utf8', timeout: 30000 }, (err, stdout) => {
+      if (err) return resolve({ allOk: true, note: '', failed: [] });
+      try {
+        const r = JSON.parse(String(stdout).trim());
+        const results = r.results || [];
+        const failed = results.filter((x) => !x.ok);
+        return resolve({
+          allOk: !!r.ok,
+          note: r.ok ? `已通过 ${results.length} 项符号验算` : '',
+          failed: failed.map((x) => `${x.expr} = ${x.equals}（差 ${x.diff || x.error || '不一致'}）`),
+        });
+      } catch {
+        resolve({ allOk: true, note: '', failed: [] });
+      }
+    });
+  });
+}
+
+async function correct(spec, failures, config) {
+  try {
+    const raw = await ai.askDeepSeek(
+      `下面解题卡的符号验算失败：\n${failures.join('\n')}\n\n请修正错误并输出完整解题卡 JSON（结构同前，保留 checks）。\n${JSON.stringify(spec)}`,
+      config, SOLVE_SYSTEM, 0);
+    const s = extractJson(raw);
+    return isSpec(s) ? normalizeSpec(s) : spec;
+  } catch {
+    return spec;
+  }
+}
+
 async function verify(spec, config) {
   try {
     const raw = await ai.askDeepSeek(
@@ -115,7 +160,7 @@ async function verify(spec, config) {
   }
 }
 
-function renderHtml(spec, issues = []) {
+function renderHtml(spec, issues = [], checkNote = '') {
   const safeSpec = JSON.stringify(spec).replace(/</g, '\\u003c');
   const safeIssues = JSON.stringify(issues).replace(/</g, '\\u003c');
   return `<!DOCTYPE html>
@@ -149,6 +194,7 @@ function renderHtml(spec, issues = []) {
   .pitfalls { margin-top: 16px; font-size: 12.5px; color: #8A7860; line-height: 1.7; }
   .pitfalls b { color: #B4543A; }
   .warn { margin-top: 10px; font-size: 12px; color: #B4543A; }
+  .ok { margin-top: 10px; font-size: 12px; color: #2E7D32; }
   .fade { animation: fade .28s ease; }
   @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   .draw { stroke-dasharray: 600; stroke-dashoffset: 600; animation: draw .9s ease forwards; }
@@ -174,6 +220,7 @@ function renderHtml(spec, issues = []) {
       <button id="next" class="primary">下一步 →</button>
     </div>
     <div class="pitfalls" id="pitfalls"></div>
+    <div class="ok" id="checknote"></div>
     <div class="warn" id="warn"></div>
   </div>
 </div>
@@ -192,6 +239,7 @@ function renderHtml(spec, issues = []) {
   el('pitfalls').innerHTML = (SPEC.pitfalls && SPEC.pitfalls.length)
     ? '<b>易错点：</b>' + SPEC.pitfalls.map((p) => '　• ' + p).join('<br>') : '';
   if (ISSUES && ISSUES.length) el('warn').textContent = '校验提示：' + ISSUES.join('；');
+  el('checknote').textContent = ${JSON.stringify(checkNote)};
 
   function svgTriangle(d) {
     const a = d.aLabel || d.a || 'a', b = d.bLabel || d.b || 'b', c = d.cLabel || d.c || 'c';
@@ -232,6 +280,34 @@ function renderHtml(spec, issues = []) {
     });
     return s + '</svg>';
   }
+  function svgCircle(d) {
+    const cx = 230, cy = 170, r = 118;
+    let s = '<svg viewBox="0 0 460 340">' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="rgba(255,201,60,.18)" stroke="#3A2A1A" stroke-width="3" class="draw"/>' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="3" fill="#3A2A1A"/>' +
+      '<line x1="' + cx + '" y1="' + cy + '" x2="' + (cx + r) + '" y2="' + cy + '" stroke="#3B6EA5" stroke-width="2"/>' +
+      '<text x="' + (cx + r / 2 - 8) + '" y="' + (cy - 10) + '" font-size="18" fill="#3B6EA5">' + (d.label || 'r') + '</text>';
+    if (d.angle) {
+      s += '<path d="M ' + (cx + 40) + ' ' + cy + ' A 40 40 0 0 0 ' + (cx + 40 * Math.cos(-Number(d.angle) * Math.PI / 180)) + ' ' + (cy + 40 * Math.sin(-Number(d.angle) * Math.PI / 180)) + '" fill="none" stroke="#E8A20A" stroke-width="2"/>';
+      s += '<text x="' + (cx + 46) + '" y="' + (cy - 30) + '" font-size="14" fill="#C08A17">' + d.angle + '°</text>';
+    }
+    return s + '</svg>';
+  }
+  function svgNumberline(d) {
+    const min = Number(d.min), max = Number(d.max);
+    const lo = Number.isFinite(min) ? min : -5, hi = Number.isFinite(max) ? max : 5;
+    const span = hi - lo || 1;
+    const x = (v) => 60 + ((Number(v) - lo) / span) * 340;
+    let s = '<svg viewBox="0 0 460 340"><line x1="50" y1="170" x2="430" y2="170" stroke="#3A2A1A" stroke-width="2"/>' +
+      '<text x="420" y="160" font-size="14" fill="#8A7860">→</text>';
+    (d.marks || []).slice(0, 10).forEach((m) => {
+      const px = x(m.x);
+      s += '<line x1="' + px + '" y1="162" x2="' + px + '" y2="178" stroke="#3A2A1A" stroke-width="2"/>';
+      s += '<circle cx="' + px + '" cy="170" r="4" fill="#E8A20A"/>';
+      if (m.label != null) s += '<text x="' + (px - 6) + '" y="200" font-size="15" fill="#2E2419">' + m.label + '</text>';
+    });
+    return s + '</svg>';
+  }
   function svgFlow(d) {
     const nodes = (d.nodes || []).slice(0, 5);
     let s = '<svg viewBox="0 0 460 340">';
@@ -250,6 +326,8 @@ function renderHtml(spec, issues = []) {
     if (type === 'triangle') html = svgTriangle(v.data || {});
     else if (type === 'axes') html = svgAxes(v.data || {});
     else if (type === 'flow') html = svgFlow(v.data || {});
+    else if (type === 'circle') html = svgCircle(v.data || {});
+    else if (type === 'numberline') html = svgNumberline(v.data || {});
     if (!html) {
       const st = steps[i] || {};
       html = '<div style="font-size:22px;line-height:1.7;text-align:center;padding:20px">' +
@@ -294,12 +372,21 @@ function renderHtml(spec, issues = []) {
 </body></html>`;
 }
 
-async function generate(topic, config, imagePath) {
+async function generate(topic, config, imagePath, opts = {}) {
   const q = String(topic || '').trim();
   if (!q && !imagePath) throw new Error('请提供知识点、题目或图片');
-  const spec = await solve(q || '请先识别图片中的题目并解答', config, imagePath);
+  let spec = await solve(q || '请先识别图片中的题目并解答', config, imagePath);
+  const check = await runChecks(spec.checks, opts.sympyScript);
+  let extra = [];
+  if (!check.allOk) {
+    extra = ['符号验算未通过：' + check.failed.join('；')];
+    spec = await correct(spec, check.failed, config);
+    const recheck = await runChecks(spec.checks, opts.sympyScript);
+    if (recheck.allOk) extra = [];
+    else if (recheck.failed.length) extra = ['符号验算仍有未通过项：' + recheck.failed.join('；')];
+  }
   const verified = await verify(spec, config);
-  return renderHtml(verified.spec, verified.issues);
+  return renderHtml(verified.spec, [...(verified.issues || []), ...extra], check.note);
 }
 
 module.exports = { generate, solve, verify, renderHtml };

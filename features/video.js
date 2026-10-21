@@ -193,12 +193,19 @@ function buildHtml(data, timeline, totalMs) {
   window.__renderAt = function (ms) {
     let idx = TIMELINE.length - 1;
     for (let i = 0; i < TIMELINE.length; i++) { if (ms < TIMELINE[i].end) { idx = i; break; } }
-    scenes.forEach((el, i) => {
-      el.style.visibility = i === idx ? 'visible' : 'hidden';
-      el.style.opacity = i === idx ? '1' : '0';
-    });
     const st = TIMELINE[idx];
     const local = ms - st.start;
+    const enter = clamp(local / 600, 0, 1);
+    const exit = clamp((st.end - ms) / 500, 0, 1);
+    const op = Math.min(enter, exit);
+    scenes.forEach((el, i) => {
+      el.style.visibility = i === idx ? 'visible' : 'hidden';
+      el.style.opacity = i === idx ? op : '0';
+      el.style.transform = i === idx ? 'scale(' + (1.03 - 0.03 * enter) + ')' : 'scale(1)';
+      el.style.transformOrigin = 'center center';
+    });
+    const vis = scenes[idx].querySelector('.vis');
+    if (vis) vis.style.transform = 'scale(' + (1 + 0.03 * clamp(local / (st.end - st.start), 0, 1)) + ')';
     const p1 = clamp(local / 700, 0, 1);
     titles[idx].style.opacity = p1;
     titles[idx].style.transform = 'translateY(' + (1 - p1) * 20 + 'px)';

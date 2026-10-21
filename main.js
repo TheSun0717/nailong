@@ -116,6 +116,9 @@ const assetsRoot = app.isPackaged
 const ocrScript = app.isPackaged
   ? path.join(process.resourcesPath, 'tools', 'ocr.py')
   : path.join(__dirname, 'tools', 'ocr.py');
+const sympyScript = app.isPackaged
+  ? path.join(process.resourcesPath, 'tools', 'sympy_check.py')
+  : path.join(__dirname, 'tools', 'sympy_check.py');
 
 const DEFAULT_CONFIG = {
   apiKey: '', // 不预置 Key：每位用户在自己的电脑上填写（公开仓库不能带凭证）
@@ -385,7 +388,7 @@ function registerIpc() {
       if (payload && payload.imagePath) {
         try { image = safePath(String(payload.imagePath)); } catch (_) {}
       }
-      const html = await teach.generate(text, config, image);
+      const html = await teach.generate(text, config, image, { sympyScript });
       fs.mkdirSync(explainDir, { recursive: true });
       const file = path.join(explainDir, `explain-${Date.now()}.html`);
       fs.writeFileSync(file, html, 'utf8');
