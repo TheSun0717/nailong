@@ -1,24 +1,20 @@
 {
   "app": {
-    "version": "1.10.0",
+    "version": "1.11.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.10.0/nailong-Setup-1.10.0.exe",
-    "sha256": "482789d18d73d4d6259c8f3901795099b43b16195138038b871b9e690160c2c0",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.11.0/nailong-Setup-1.11.0.exe",
+    "sha256": "1242d33e14ed13d2d0c5f021d7190aee4143ab22df76d8e07f0a8c872c7d9dd9",
     "notes": {
-      "summary": "工作台、历史、全平台搜索与讲解 v2。",
+      "summary": "符号验算与更生动的图示。",
       "items": [
-        "三栏工作台：文件/历史/作品 + 聊天 + 功能栏；最小化/全屏",
-        "商店左侧抽屉；能力工坊按钮",
-        "历史记录（打开中/归档）；作品库重启可开",
-        "搜索合并 research-kit，新增知乎/豆瓣/贴吧/微博/牛客/CSDN/掘金",
-        "插件自动路由（关键词 + 查询清洗）",
-        "讲解页 v2：结构化解题 + 阅卷校验 + 动画 + SVG",
-        "视频分镜加入 SVG 图示",
-        "多轮上下文 + 图片多模态尝试"
+        "讲解页加入 SymPy 符号验算，失败自动修正并显示结果",
+        "新增 circle / numberline 图示模板",
+        "视频场景加入淡入/缩放转场与图示推进",
+        "SymPy 输入白名单与危险词过滤"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.10.0/nailong-Setup-1.10.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.11.0/nailong-Setup-1.11.0.exe"
     ]
   },
   "plugins": [],
