@@ -625,6 +625,12 @@ async function captureUi() {
     await chatWin.webContents.executeJavaScript("document.querySelector('#plugins-modal').classList.remove('open'); runPluginCommand('hello','')");
     await wait(800);
     await shot(chatWin, 'chat-panel.png');
+    await chatWin.webContents.executeJavaScript("document.querySelector('#panel-modal').classList.remove('open'); document.querySelector('#plugins-btn').click(); document.querySelector('.ptab[data-tab=store]').click()");
+    await wait(1800);
+    await shot(chatWin, 'chat-store.png');
+    await chatWin.webContents.executeJavaScript("document.querySelector('#plugins-modal').classList.remove('open'); runPluginCommand('bili','线性代数')");
+    await wait(1800);
+    await shot(chatWin, 'chat-bili.png');
     await chatWin.webContents.executeJavaScript("document.querySelector('#panel-modal').classList.remove('open')");
     await wait(250);
     await chatWin.webContents.executeJavaScript(`(() => {

@@ -52,8 +52,8 @@ const API_SOURCE = 'https://api.github.com/repos/TheSun0717/nailong/contents/upd
 // GitHub raw 的 CDN 缓存可能滞后数分钟，优先走 Contents API（内容实时），失败再回退 raw
 async function fetchManifest() {
   try {
-    const res = await doFetch(API_SOURCE, {
-      headers: { Accept: 'application/vnd.github+json' },
+    const res = await doFetch(API_SOURCE + '&t=' + Date.now(), {
+      headers: { Accept: 'application/vnd.github+json', 'Cache-Control': 'no-cache' },
       signal: AbortSignal.timeout(8000),
       cache: 'no-store',
     });
