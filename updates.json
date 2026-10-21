@@ -1,20 +1,19 @@
 {
   "app": {
-    "version": "1.12.0",
+    "version": "1.13.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.12.0/nailong-Setup-1.12.0.exe",
-    "sha256": "6c5f11ef48a4376982cb843739be0c965e9682d048b34a94b98f45356276065d",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.13.0/nailong-Setup-1.13.0.exe",
+    "sha256": "d51b03aac74be7489116ca9df456546da30580eb3ce9757f4cb04006a0ae5780",
     "notes": {
-      "summary": "准确性与解析加固。",
+      "summary": "双解一致性与视频绘制动画。",
       "items": [
-        "解题/阅卷走 JSON 模式，不支持时自动回退",
-        "三角形图示自动追加勾股校验",
-        "verify 启用 JSON 模式",
-        "三角形模板限定直角三角形"
+        "纯文本题独立解两次；不一致由阅卷模型仲裁",
+        "讲解页合并显示符号验算 + 双解结论",
+        "视频图示逐元素描边绘制 + 转场"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.12.0/nailong-Setup-1.12.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.13.0/nailong-Setup-1.13.0.exe"
     ]
   },
   "plugins": [],
