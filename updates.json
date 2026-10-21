@@ -1,19 +1,19 @@
 {
   "app": {
-    "version": "1.13.1",
+    "version": "1.14.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.13.1/nailong-Setup-1.13.1.exe",
-    "sha256": "834ff21120f7276bf04eee52adb17b32967ad2c8eca1957e1892f5fcc7a8ac52",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.14.0/nailong-Setup-1.14.0.exe",
+    "sha256": "64608c98658926b8e68da8ba9f1045a85dd362c86ffff572b4f69fba9909429b",
     "notes": {
-      "summary": "数据与依赖迁到 D 盘。",
+      "summary": "解题卡缓存与三角形不等式校验。",
       "items": [
-        "开发版数据放项目 .userdata；安装版优先 D:\nailong-data",
-        "Python 依赖迁到 D:\nailong-tools\\py",
-        "清理 C 盘 pip 缓存与系统 rapidocr"
+        "已校验解题卡持久缓存（30 天），同题 0 token、毫秒级",
+        "三角形不等式校验",
+        "数据与依赖全部位于 D 盘"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.13.1/nailong-Setup-1.13.1.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.14.0/nailong-Setup-1.14.0.exe"
     ]
   },
   "plugins": [],
