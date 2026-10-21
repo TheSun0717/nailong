@@ -1,21 +1,20 @@
 {
   "app": {
-    "version": "1.1.0",
+    "version": "1.1.1",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.1.0/Setup.1.1.0.exe",
-    "sha256": "2749dd7222f1f7e49c130b26ba6d88cb020a2b350f6d9bfbde7e9c07140eed9b",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.1.1/nailong-Setup-1.1.1.exe",
+    "sha256": "2cacdb83bb5a01a0bbd91a8d07503fb91876d707e64d5bca99d3b943195bad6d",
     "notes": {
-      "summary": "插件化准备、桌宠设置与在线更新。",
+      "summary": "修复与加固在线更新。",
       "items": [
-        "新增在线更新：检查、更新日志、下载校验、静默安装",
-        "桌宠大小 0.5–2.0× 滑块，窗口大小可独立调节（默认 480）",
-        "自动气泡开关；气泡贴着奶龙头顶定位",
-        "插件宿主地基：清单校验、安装/更新/回滚",
-        "移除源码中的 API Key，改为本机配置"
+        "更新清单改用 GitHub Contents API，避免 raw CDN 缓存导致的旧地址/404",
+        "更新下载走系统代理（Electron net.fetch），新增 ghproxy 镜像回退",
+        "下载完成做 SHA-256 校验",
+        "桌宠：0.5–2.0× 缩放、独立窗口大小（默认 480）、自动气泡开关"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.1.0/Setup.1.1.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.1.1/nailong-Setup-1.1.1.exe"
     ]
   },
   "plugins": [],
