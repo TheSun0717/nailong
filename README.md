@@ -85,6 +85,7 @@ npm run dist   # 产物在 dist/奶龙 Setup 1.0.0.exe
 | `data/seed/` | 内置通用学习法 |
 | `ui/` | pet / chat / fullscreen 三个页面 + 本地 marked、DOMPurify |
 | `docs/竞品拆解.md` | 同类产品分析与取舍 |
+| `docs/开发日志.md` | 每一步做了什么、实测结果、踩坑与修复 |
 | `tools/xhs-search.sh` | 小红书搜索（绕过 OpenCLI 坏掉的站内搜索，直接抓 search_result DOM） |
 
 ## 手机 APK（Capacitor）
