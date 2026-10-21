@@ -8,14 +8,13 @@
 
 1. [DeepSeek](#deepseek)
 2. [OpenAI](#openai)
-3. [Anthropic Claude](#anthropic)
-4. [Google Gemini](#gemini)
-5. [阿里通义千问（DashScope）](#qwen)
-6. [月之暗面 Kimi](#kimi)
-7. [智谱 GLM](#glm)
-8. [字节豆包（火山方舟）](#doubao)
-9. [OpenRouter](#openrouter)
-10. [硅基流动](#siliconflow)
+3. [Google Gemini](#gemini)
+4. [阿里通义千问（DashScope）](#qwen)
+5. [月之暗面 Kimi](#kimi)
+6. [智谱 GLM](#glm)
+7. [字节豆包（火山方舟）](#doubao)
+8. [OpenRouter](#openrouter)
+9. [硅基流动](#siliconflow)
 
 ---
 
@@ -52,21 +51,8 @@
 
 ---
 
-<a id="anthropic"></a>
-## 3. Anthropic Claude
-
-- **申请地址**：https://console.anthropic.com
-- **控制台路径**：登录 → API Keys → Create Key → 复制 `sk-ant-...`
-- **API Base**：`https://api.anthropic.com/v1`
-- **常用模型**：`claude-sonnet-5-5`、`claude-opus-5-5`、`claude-haiku-5-5`
-- **是否需要充值**：需要
-- **步骤**：注册 → Plans & Billing 充值 → API Keys 创建 → 填进奶龙。
-- **注意**：Anthropic 的接口协议和 OpenAI 不完全一样；奶龙当前的内置调用是 OpenAI 兼容格式，接入 Anthropic 需要选「Anthropic 兼容」适配器（开发中）。
-
----
-
 <a id="gemini"></a>
-## 4. Google Gemini
+## 3. Google Gemini
 
 - **申请地址**：https://aistudio.google.com/apikey
 - **控制台路径**：Google AI Studio → Get API key → Create API key → 复制
@@ -78,7 +64,7 @@
 ---
 
 <a id="qwen"></a>
-## 5. 阿里通义千问（DashScope）
+## 4. 阿里通义千问（DashScope）
 
 - **申请地址**：https://dashscope.console.aliyun.com
 - **控制台路径**：登录 → API-KEY 管理 → 创建新的 API-KEY → 复制
@@ -90,7 +76,7 @@
 ---
 
 <a id="kimi"></a>
-## 6. 月之暗面 Kimi
+## 5. 月之暗面 Kimi
 
 - **申请地址**：https://platform.moonshot.cn
 - **控制台路径**：登录 → API Key 管理 → 新建 → 复制
@@ -102,7 +88,7 @@
 ---
 
 <a id="glm"></a>
-## 7. 智谱 GLM
+## 6. 智谱 GLM
 
 - **申请地址**：https://open.bigmodel.cn
 - **控制台路径**：登录 → 控制台 → API Keys → 创建 → 复制
@@ -114,7 +100,7 @@
 ---
 
 <a id="doubao"></a>
-## 8. 字节豆包（火山方舟）
+## 7. 字节豆包（火山方舟）
 
 - **申请地址**：https://console.volcengine.com/ark
 - **控制台路径**：登录 → 火山方舟 → 模型推理 → 接入点管理 → 创建接入点 → 得到 `ep-...`；再到 API Key 管理创建 Key
@@ -126,7 +112,7 @@
 ---
 
 <a id="openrouter"></a>
-## 9. OpenRouter
+## 8. OpenRouter
 
 - **申请地址**：https://openrouter.ai/keys
 - **控制台路径**：登录 → Keys → Create Key → 复制 `sk-or-...`
@@ -138,7 +124,7 @@
 ---
 
 <a id="siliconflow"></a>
-## 10. 硅基流动
+## 9. 硅基流动
 
 - **申请地址**：https://cloud.siliconflow.cn
 - **控制台路径**：登录 → API 密钥 → 新建 → 复制 `sk-...`

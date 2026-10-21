@@ -1,0 +1,30 @@
+{
+  "id": "research-kit",
+  "name": "资料搜索",
+  "version": "1.0.0",
+  "minAppVersion": "1.8.0",
+  "description": "一站搜索 B 站和小红书的公开学习资料。",
+  "intro": {
+    "what": "它让奶龙会搜 B 站和小红书：找公开课、找笔记、找学长学姐的经验。",
+    "how": "直接说「帮我搜一下北邮人工智能」或者输入 /bili 关键词、/xhs 关键词；第一次用小红书会先问你允不允许采集。",
+    "whatHappens": "奶龙会列出视频或笔记的标题、作者和热度，点「打开」就能看。",
+    "ifFails": "检查网络；小红书需要在内置窗口登录一次；被安全验证时按页面提示操作后再试。"
+  },
+  "permissions": ["chat", "web", "ui"],
+  "capabilities": [],
+  "commands": [
+    {
+      "name": "bili",
+      "description": "搜索 B 站视频，例如 /bili 线性代数",
+      "triggers": ["b站", "bilibili", "公开课"],
+      "action": { "type": "web.search", "platform": "bilibili", "queryFrom": "args" }
+    },
+    {
+      "name": "xhs",
+      "description": "搜索小红书笔记，例如 /xhs 北邮 人工智能",
+      "triggers": ["小红书", "xhs"],
+      "action": { "type": "web.search", "platform": "xiaohongshu", "queryFrom": "args" }
+    }
+  ],
+  "firstParty": false
+}

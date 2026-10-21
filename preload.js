@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld('nailong', {
   pluginCommands: () => ipcRenderer.invoke('plugin-commands'),
   pluginStatus: () => ipcRenderer.invoke('plugin-status'),
   runPluginCommand: (name, args) => ipcRenderer.invoke('plugin-run', name, args),
+  autoPlugin: (q) => ipcRenderer.invoke('plugin-auto', q),
   setPluginEnabled: (id, enabled) => ipcRenderer.invoke('plugin-set-enabled', id, enabled),
   removePlugin: (id) => ipcRenderer.invoke('plugin-remove', id),
   storeList: () => ipcRenderer.invoke('store-list'),
@@ -66,6 +67,7 @@ contextBridge.exposeInMainWorld('nailong', {
 
   // 更新
   getAppVersion: () => ipcRenderer.invoke('app-version'),
+  toggleMaximize: () => ipcRenderer.invoke('win-toggle-max'),
   checkUpdate: () => ipcRenderer.invoke('update-check'),
   downloadUpdate: (url, mirrors, sha256) => ipcRenderer.invoke('update-download', { url, mirrors, sha256 }),
   onUpdateProgress: (cb) => ipcRenderer.on('update-progress', (_e, p) => cb(p)),

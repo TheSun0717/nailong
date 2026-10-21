@@ -21,8 +21,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { width: 100%; height: 100%; overflow: hidden; }
   body {
-    display: flex;
-    flex-direction: column;
+    display: block;
     font-family: "Microsoft YaHei UI", "PingFang SC", "Segoe UI", sans-serif;
     color: var(--ink);
     background:
@@ -30,6 +29,61 @@
       linear-gradient(180deg, #FFFCF3 0%, #FFF5DF 100%);
     -webkit-font-smoothing: antialiased;
   }
+
+  /* ---------- 三栏布局 ---------- */
+  #app { display: flex; height: 100%; width: 100%; }
+  #center { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  #left-rail {
+    width: 190px; flex: 0 0 auto; height: 100%; display: flex; flex-direction: column;
+    background: linear-gradient(180deg, #FFFDF7, #FFF6E4);
+    border-right: 1.5px solid var(--line);
+  }
+  .rail-tabs { display: flex; gap: 6px; padding: 8px; border-bottom: 1.5px solid var(--line); }
+  .rail-tab {
+    flex: 1; border: 1.5px solid var(--line); background: var(--paper); border-radius: 9px;
+    padding: 5px 0; font-size: 11.5px; font-family: inherit; cursor: pointer; color: var(--ink);
+  }
+  .rail-tab.active { background: var(--yellow); border-color: var(--yellow-deep); font-weight: 700; }
+  .left-pane { display: none; flex: 1; min-height: 0; flex-direction: column; padding: 10px; gap: 8px; }
+  .left-pane.active { display: flex; }
+  .left-btn {
+    border: 1.5px dashed var(--line); background: transparent; border-radius: 9px;
+    padding: 6px 0; font-size: 11.5px; font-family: inherit; cursor: pointer; color: var(--ink-soft);
+  }
+  .left-btn:hover { background: var(--paper); color: var(--ink); }
+  #file-list, #history-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+  #file-list::-webkit-scrollbar, #history-list::-webkit-scrollbar { width: 6px; }
+  #file-list::-webkit-scrollbar-thumb, #history-list::-webkit-scrollbar-thumb { background: rgba(58,42,26,.14); border-radius: 3px; }
+  .file-row {
+    display: flex; align-items: center; gap: 5px; padding: 6px 7px;
+    background: var(--paper); border: 1.5px solid var(--line); border-radius: 8px; font-size: 11px;
+  }
+  .file-row .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-row button { border: none; background: transparent; cursor: pointer; font-size: 11px; color: var(--ink-soft); padding: 0 2px; }
+  .file-row button:hover { color: var(--ink); }
+  .history-item {
+    padding: 7px 8px; border: 1.5px solid var(--line); border-radius: 9px;
+    background: var(--paper); cursor: pointer; position: relative;
+  }
+  .history-item:hover { background: #FFF9E6; }
+  .history-item.active { border-color: var(--yellow-deep); background: var(--yellow-soft); }
+  .history-item .hi-title { font-size: 11.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 14px; }
+  .history-item .hi-meta { font-size: 10px; color: var(--ink-soft); margin-top: 2px; }
+  .history-item .hi-del { position: absolute; right: 4px; top: 4px; border: none; background: transparent; cursor: pointer; color: var(--ink-soft); font-size: 11px; }
+  .history-item .hi-del:hover { color: #B4543A; }
+  .history-empty { font-size: 11px; color: var(--ink-soft); padding: 6px 2px; line-height: 1.6; }
+  #right-rail {
+    width: 54px; flex: 0 0 auto; height: 100%; display: flex; flex-direction: column; align-items: center;
+    gap: 8px; padding: 10px 0; background: linear-gradient(180deg, #FFFDF7, #FFF6E4);
+    border-left: 1.5px solid var(--line);
+  }
+  .rail-btn {
+    width: 38px; height: 38px; border-radius: 12px; border: 1.5px solid var(--line);
+    background: var(--paper); cursor: pointer; font-size: 17px; display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--shadow-1);
+  }
+  .rail-btn:hover { background: #FFF9E6; transform: translateY(-1px); }
+  .rail-sep { width: 26px; height: 1.5px; background: var(--line); margin: 2px 0; }
 
   /* ---------- 顶栏 ---------- */
   #header {
@@ -344,6 +398,19 @@
   #send:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--yellow-deep); }
   #send:disabled { opacity: .45; cursor: default; transform: none; box-shadow: 0 3px 0 var(--yellow-deep); }
 
+  /* 插件商店：从左侧长出的抽屉 */
+  #plugins-modal {
+    display: block; position: fixed; top: 0; left: 0; bottom: 0; width: 380px; max-width: 92vw; z-index: 30;
+    transform: translateX(-102%); transition: transform .25s ease; pointer-events: none;
+    background: transparent; backdrop-filter: none;
+  }
+  #plugins-modal.open { display: block; transform: none; pointer-events: auto; }
+  #plugins-modal .card {
+    width: 100%; height: 100%; max-height: none; min-height: 100%;
+    border-radius: 0 18px 18px 0; border-left: 0; padding: 18px 16px;
+    overflow-y: auto; box-shadow: 6px 0 24px rgba(58, 42, 26, .18);
+  }
+
   /* ---------- 弹层 ---------- */
   .modal {
     display: none; position: fixed; inset: 0; z-index: 20;
@@ -480,10 +547,13 @@
   }
   #clear-conv:hover { color: #8C3A24; }
 
-  @media (max-width: 400px) {
-    #file-panel-btn, #attach, #close { display: none; }
+  @media (max-width: 900px) {
+    #left-rail { width: 150px; }
+  }
+  @media (max-width: 700px) {
+    #left-rail { display: none; }
+    #right-rail { width: 46px; }
     #input-bar { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
-    .bubble { font-size: 13px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -492,29 +562,66 @@
 </style>
 </head>
 <body>
-  <div id="header">
-    <div class="brand">
-      <div class="avatar-ring"><img id="header-avatar" alt="奶龙"></div>
-      <div class="brand-text">
-        <h1>奶龙</h1>
-        <div class="status"><span class="dot"></span>在线 · 大肚肚待命中</div>
+  <div id="app">
+    <aside id="left-rail">
+      <div class="rail-tabs">
+        <button id="left-tab-files" class="rail-tab active">文件</button>
+        <button id="left-tab-history" class="rail-tab">历史</button>
       </div>
-    </div>
-    <div class="header-actions">
-      <button class="icon-btn" id="plugins-btn" title="插件">🧩</button>
-      <button class="icon-btn" id="settings-btn" title="设置 DeepSeek 接口">⚙</button>
-      <button class="icon-btn" id="close" title="关闭">✕</button>
-    </div>
+      <div id="left-files" class="left-pane active">
+        <button id="file-import" class="left-btn">＋ 导入文件</button>
+        <div id="file-list"></div>
+      </div>
+      <div id="left-history" class="left-pane">
+        <button id="history-new" class="left-btn">＋ 新对话</button>
+        <div id="history-list"></div>
+      </div>
+    </aside>
+
+    <main id="center">
+      <div id="header">
+        <div class="brand">
+          <div class="avatar-ring"><img id="header-avatar" alt="奶龙"></div>
+          <div class="brand-text">
+            <h1>奶龙</h1>
+            <div class="status"><span class="dot"></span>在线 · 大肚肚待命中</div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" id="win-max" title="全屏 / 还原">⤢</button>
+          <button class="icon-btn" id="close" title="关闭">✕</button>
+        </div>
+      </div>
+
+      <div id="hint">💡 点击你自己的头像，可以换一张照片当头像哦～</div>
+
+      <div id="tab-bar">
+        <div id="tabs"></div>
+        <button id="tab-add" title="新建任务">＋</button>
+      </div>
+
+      <div id="messages"></div>
+
+      <div id="input-bar">
+        <button class="tool-btn" id="attach" title="发送文件">＋</button>
+        <div id="input-shell">
+          <textarea id="input" rows="1" placeholder="和奶龙说点什么…"></textarea>
+        </div>
+        <button id="send" title="发送（Enter）">➤</button>
+      </div>
+    </main>
+
+    <aside id="right-rail">
+      <button class="rail-btn" id="rail-store" title="插件商城">🛍</button>
+      <button class="rail-btn" id="study-btn" title="学习助手">🎓</button>
+      <button class="rail-btn" id="explain-btn" title="把输入框里的题做成讲解页">🧩</button>
+      <button class="rail-btn" id="video-btn" title="生成讲解视频">🎬</button>
+      <div class="rail-sep"></div>
+      <button class="rail-btn" id="settings-btn" title="设置">⚙</button>
+      <button class="rail-btn" id="rail-update" title="检查更新">🔄</button>
+      <button class="rail-btn" id="rail-feedback" title="问题反馈">📮</button>
+    </aside>
   </div>
-
-  <div id="hint">💡 点击你自己的头像，可以换一张照片当头像哦～</div>
-
-  <div id="tab-bar">
-    <div id="tabs"></div>
-    <button id="tab-add" title="新建任务">＋</button>
-  </div>
-
-  <div id="messages"></div>
 
   <template id="empty-tpl">
     <div class="empty">
@@ -529,20 +636,6 @@
       </div>
     </div>
   </template>
-
-  <div id="file-panel"></div>
-
-  <div id="input-bar">
-    <button class="tool-btn" id="explain-btn" title="把输入框里的题做成讲解页">🧩</button>
-    <button class="tool-btn" id="video-btn" title="生成讲解视频">🎬</button>
-    <button class="tool-btn" id="study-btn" title="学习助手">🎓</button>
-    <button class="tool-btn" id="file-panel-btn" title="文件管理">📁</button>
-    <button class="tool-btn" id="attach" title="发送文件">＋</button>
-    <div id="input-shell">
-      <textarea id="input" rows="1" placeholder="和奶龙说点什么…"></textarea>
-    </div>
-    <button id="send" title="发送（Enter）">➤</button>
-  </div>
 
   <div id="toast"></div>
 
@@ -622,19 +715,20 @@
       </div>
 
       <h3 class="sec-title">📥 资料采集</h3>
-      <label>小红书采集授权</label>
+      <label>平台采集授权</label>
       <select id="xhs-consent">
         <option value="">每次询问</option>
         <option value="yes">允许</option>
         <option value="no">不允许</option>
       </select>
+      <div class="tip">当前支持：小红书；之后接入其他平台会沿用这个授权。</div>
 
       <h3 class="sec-title">🐣 桌宠</h3>
       <label>大小 <span id="pet-scale-val">1.0×</span></label>
       <input id="pet-scale" type="range" min="0.5" max="2" step="0.1" value="1">
       <label>窗口大小 <span id="pet-canvas-val">480</span>px</label>
       <input id="pet-canvas" type="range" min="360" max="640" step="20" value="480">
-      <label class="check"><input id="pet-bubble" type="checkbox" checked> 自动气泡（关闭后不再自动说话，双击彩蛋保留）</label>
+      <label class="check"><input id="pet-bubble" type="checkbox" checked> 自动气泡</label>
 
       <h3 class="sec-title">🔄 更新</h3>
       <div class="tip" id="version-line">当前版本 —</div>
@@ -798,10 +892,15 @@
     const idx = tabs.findIndex((t) => t.id === id);
     if (idx < 0) return;
     const t = tabs[idx];
+    if (t.history.length) {
+      archived.unshift({ id: t.id, title: t.title, history: t.history, ts: Date.now() });
+      archived = archived.slice(0, 50);
+    }
     t.pane.remove();
     tabs.splice(idx, 1);
     if (activeId === id) switchTab(tabs[Math.max(0, idx - 1)].id);
     else renderTabBar();
+    renderHistoryList();
     saveTabs();
   }
 
@@ -844,6 +943,7 @@
       window.nailong.saveTabs({
         active: activeId,
         tabs: tabs.map((t) => ({ id: t.id, title: t.title, history: t.history })),
+        archived,
       }).catch(() => {});
     }, 250);
   }
@@ -910,6 +1010,7 @@
 
     let data = null;
     try { data = await window.nailong.loadTabs(); } catch (_) {}
+    archived = (data && Array.isArray(data.archived)) ? data.archived : [];
     if (data && Array.isArray(data.tabs) && data.tabs.length) {
       for (const t of data.tabs) {
         const tab = createTab({ id: t.id, title: t.title, history: t.history || [], activate: false });
@@ -923,6 +1024,8 @@
       const tab = createTab({ history: Array.isArray(old) ? old : [] });
       for (const m of tab.history) renderMessage(tab, m.who, m.text, { restore: true, ts: m.ts });
     }
+    refreshFiles();
+    renderHistoryList();
     $('#input').focus();
   }
 
@@ -1080,6 +1183,26 @@
     const id = 's' + Date.now() + Math.random().toString(36).slice(2, 6);
     pendingStreams.set(id, { wrap, bubble: wrap.querySelector('.bubble'), text: '', started: false, q, tabId: tab.id });
     window.nailong.askStream(id, q);
+    window.nailong.autoPlugin(q).then((auto) => {
+      if (auto && auto.ok && Array.isArray(auto.used) && auto.used.length) renderAutoPlugin(auto.used, tab);
+    }).catch(() => {});
+  }
+
+  function renderAutoPlugin(used, tab) {
+    for (const u of used) {
+      const r = u.result || {};
+      const text = r.text
+        ? `已自动使用「${u.pluginName}」（/${u.name}）：${r.text}`
+        : `已自动使用「${u.pluginName}」（/${u.name}）`;
+      const wrap = addMsg('nailong', text, { tab });
+      const stack = wrap.querySelector('.stack');
+      const tag = document.createElement('div');
+      tag.className = 'mode-tag';
+      tag.textContent = `🔎 自动使用插件 · ${u.pluginName}`;
+      stack.insertBefore(tag, wrap.querySelector('.bubble'));
+      if (r.panel) addAction(stack, '查看结果', () => showPanel(r.panel));
+    }
+    renderHistoryList();
   }
 
   async function supplement(q) {
@@ -1277,36 +1400,29 @@
     if (tab.id === activeId) scrollBottom();
   }
 
-  async function toggleFilePanel() {
-    const panel = $('#file-panel');
-    if (panel.classList.contains('open')) { panel.classList.remove('open'); return; }
-    panel.classList.add('open');
-    await refreshFiles();
-  }
-
   async function refreshFiles() {
-    const files = await window.nailong.listFiles();
-    const panel = $('#file-panel');
-    panel.innerHTML = '<div class="ftitle">📁 奶龙的文件夹</div>';
-    if (!files.length) {
-      panel.innerHTML += '<div class="fempty">空空的，点 ＋ 发个文件给奶龙吧～</div>';
+    const box = $('#file-list');
+    if (!box) return;
+    let files = [];
+    try { files = await window.nailong.listFiles(); } catch (_) {}
+    box.innerHTML = '';
+    if (!Array.isArray(files) || !files.length) {
+      const d = document.createElement('div');
+      d.className = 'history-empty';
+      d.textContent = '空空的，点「导入文件」发个文件给奶龙吧～';
+      box.appendChild(d);
       return;
     }
     for (const f of files) {
       const row = document.createElement('div');
-      row.className = 'frow';
+      row.className = 'file-row';
       const name = document.createElement('span');
       name.className = 'fname';
       name.textContent = f.name;
+      name.title = f.name;
       const open = document.createElement('button');
       open.textContent = '打开';
       open.onclick = () => window.nailong.openFile(f.name);
-      const rename = document.createElement('button');
-      rename.textContent = '重命名';
-      rename.onclick = async () => {
-        const nn = prompt('新文件名：', f.name);
-        if (nn) { await window.nailong.renameFile(f.name, nn); refreshFiles(); }
-      };
       const del = document.createElement('button');
       del.textContent = '删除';
       del.onclick = async () => {
@@ -1314,12 +1430,72 @@
         await window.nailong.deleteFile(f.name);
         refreshFiles();
       };
-      row.appendChild(name);
-      row.appendChild(open);
-      row.appendChild(rename);
-      row.appendChild(del);
-      panel.appendChild(row);
+      row.append(name, open, del);
+      box.appendChild(row);
     }
+  }
+
+  /* ---------- 历史记录 ---------- */
+  let archived = [];
+
+  function historyTime(item) {
+    const last = (item.history || []).slice(-1)[0];
+    const ts = (last && last.ts) || item.ts || Date.now();
+    return new Date(ts).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function renderHistoryList() {
+    const box = $('#history-list');
+    if (!box) return;
+    box.innerHTML = '';
+    const openItems = tabs.map((t) => ({ id: t.id, title: t.title, history: t.history, open: true }));
+    const all = openItems.concat(archived.map((a) => ({ ...a, open: false })));
+    if (!all.length) {
+      const d = document.createElement('div');
+      d.className = 'history-empty';
+      d.textContent = '还没有历史记录。聊几句就会自动保存在这里。';
+      box.appendChild(d);
+      return;
+    }
+    all.forEach((item) => {
+      const el = document.createElement('div');
+      el.className = 'history-item' + (item.open && item.id === activeId ? ' active' : '');
+      const title = document.createElement('div');
+      title.className = 'hi-title';
+      title.textContent = item.title || '未命名';
+      const meta = document.createElement('div');
+      meta.className = 'hi-meta';
+      meta.textContent = (item.open ? '打开中 · ' : '历史 · ') + historyTime(item);
+      el.append(title, meta);
+      el.onclick = () => {
+        if (item.open) switchTab(item.id);
+        else openArchived(item.id);
+      };
+      if (!item.open) {
+        const del = document.createElement('button');
+        del.className = 'hi-del';
+        del.textContent = '×';
+        del.onclick = (e) => {
+          e.stopPropagation();
+          archived = archived.filter((a) => a.id !== item.id);
+          saveTabs();
+          renderHistoryList();
+        };
+        el.appendChild(del);
+      }
+      box.appendChild(el);
+    });
+  }
+
+  function openArchived(id) {
+    const idx = archived.findIndex((a) => a.id === id);
+    if (idx < 0) return;
+    const item = archived[idx];
+    archived.splice(idx, 1);
+    const tab = createTab({ title: item.title, history: item.history });
+    for (const m of tab.history) renderMessage(tab, m.who, m.text, { restore: true, ts: m.ts });
+    switchTab(tab.id);
+    renderHistoryList();
   }
 
   $('#send').onclick = send;
@@ -1349,8 +1525,22 @@
   $('#tab-add').onclick = () => createTab();
 
   $('#attach').onclick = pickFiles;
-  $('#file-panel-btn').onclick = toggleFilePanel;
+  $('#file-import').onclick = pickFiles;
   $('#close').onclick = () => window.nailong.closeChat();
+  $('#win-max').onclick = () => window.nailong.toggleMaximize();
+  $('#rail-update').onclick = () => checkUpdate();
+  $('#rail-feedback').onclick = () => $('#feedback-modal').classList.add('open');
+  $('#history-new').onclick = () => { createTab(); renderHistoryList(); };
+  document.querySelectorAll('.rail-tab').forEach((b) => {
+    b.onclick = () => {
+      document.querySelectorAll('.rail-tab').forEach((x) => x.classList.toggle('active', x === b));
+      const which = b.id === 'left-tab-history' ? 'history' : 'files';
+      $('#left-files').classList.toggle('active', which === 'files');
+      $('#left-history').classList.toggle('active', which === 'history');
+      if (which === 'history') renderHistoryList();
+      else refreshFiles();
+    };
+  });
 
   function scaleLabel(v) { return (Math.round(Number(v) * 10) / 10).toFixed(1) + '×'; }
 
@@ -1737,7 +1927,7 @@
     $('#panel-modal').classList.add('open');
   }
 
-  $('#plugins-btn').onclick = openPlugins;
+  $('#rail-store').onclick = openPlugins;
   document.querySelectorAll('.ptab').forEach((b) => {
     b.onclick = () => { pluginTab = b.dataset.tab; renderPlugins(); };
   });

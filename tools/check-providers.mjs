@@ -7,8 +7,6 @@ const targets = [
   { id: 'deepseek', kind: 'api', url: 'https://api.deepseek.com/models' },
   { id: 'openai', kind: 'console', url: 'https://platform.openai.com' },
   { id: 'openai', kind: 'api', url: 'https://api.openai.com/v1/models' },
-  { id: 'anthropic', kind: 'console', url: 'https://console.anthropic.com' },
-  { id: 'anthropic', kind: 'api', url: 'https://api.anthropic.com/v1/messages' },
   { id: 'gemini', kind: 'console', url: 'https://aistudio.google.com/apikey' },
   { id: 'gemini', kind: 'api', url: 'https://generativelanguage.googleapis.com' },
   { id: 'qwen', kind: 'console', url: 'https://dashscope.console.aliyun.com' },

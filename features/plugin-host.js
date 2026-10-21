@@ -93,6 +93,7 @@ function registerDeclarative(manifest) {
       pluginId: manifest.id,
       pluginName: manifest.name,
       description: c.description || '',
+      triggers: Array.isArray(c.triggers) ? c.triggers : [],
       handler: (args) => runDeclarative(manifest, c, args),
     });
   }
@@ -189,6 +190,19 @@ function createHost(manifest, dir) {
   return host;
 }
 
+function matchIntent(question) {
+  const text = String(question || '').toLowerCase();
+  if (!text) return [];
+  const out = [];
+  for (const [name, c] of registry.entries()) {
+    const triggers = c.triggers || [];
+    if (triggers.some((t) => text.includes(String(t).toLowerCase()))) {
+      out.push({ name, pluginId: c.pluginId, pluginName: c.pluginName });
+    }
+  }
+  return out;
+}
+
 function commands() {
   return [...registry.entries()].map(([name, c]) => ({
     name,
@@ -218,4 +232,4 @@ function status() {
   };
 }
 
-module.exports = { init, commands, runCommand, status };
+module.exports = { init, commands, runCommand, matchIntent, status };

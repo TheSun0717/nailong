@@ -198,7 +198,7 @@ data/video|explain/      产物
 ## 8. LLM 供应商目录与 API Key
 
 - 文档：`data/docs/llm-providers.md`，带目录；应用内 Markdown 查看器打开，不依赖 WPS。
-- 首版供应商：DeepSeek、OpenAI、Anthropic、Gemini、通义（DashScope）、Kimi、GLM、豆包（火山方舟）、OpenRouter、硅基流动。
+- 首版供应商：DeepSeek、OpenAI、Gemini、通义（DashScope）、Kimi、GLM、豆包（火山方舟）、OpenRouter、硅基流动。
 - 每家字段：申请地址、控制台路径、Base URL、常用模型 ID、配置步骤、常见报错、最后校验日期。
 - 存储：`safeStorage` 加密；换机需重填。
 - 设置页：每家一个「测试连接」；下方固定提示「可以试着询问：怎样进行 DeepSeek 的 API 配置操作」。

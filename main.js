@@ -35,6 +35,18 @@ const pluginsDir = path.join(dataDir, 'plugins');
 const pluginStatePath = path.join(dataDir, 'plugin-state.json');
 plugins.init(pluginsDir, pluginStatePath);
 plugins.ensureBundled(path.join(__dirname, 'plugins'));
+// 旧版搜索插件合并进 research-kit，清理遗留安装
+for (const legacy of ['xhs-search', 'bili-search']) {
+  try { plugins.remove(legacy); } catch {}
+}
+
+function cleanPluginQuery(q) {
+  const s = String(q || '')
+    .replace(/小红书|b站|bilibili|帮我|帮忙|搜一下|搜索|搜|找一下|查找|找|看看|查一下|查|一下|的|资料|笔记|视频|公开课/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return s || String(q || '');
+}
 
 async function ensureXhsConsent() {
   if (config.xhsConsent === 'yes') return true;
@@ -45,7 +57,7 @@ async function ensureXhsConsent() {
     defaultId: 0,
     cancelId: 1,
     noLink: true,
-    title: '小红书资料采集',
+    title: '平台资料采集',
     message: '是否允许奶龙读取你在小红书的公开搜索结果？',
     detail: '奶龙会打开一个内置浏览器窗口，使用你自己的登录状态；不保存账号密码，也可以随时在设置里更改。',
   });
@@ -218,11 +230,16 @@ function positionPet() {
 
 function openChat() {
   if (chatWin) { chatWin.focus(); return; }
+  const wa = screen.getPrimaryDisplay().workArea;
+  const winW = Math.max(820, Math.round(wa.width * 0.6));
+  const winH = Math.max(560, Math.round(wa.height * 0.6));
   chatWin = new BrowserWindow({
-    width: 420,
-    height: 660,
-    minWidth: 340,
-    minHeight: 500,
+    width: winW,
+    height: winH,
+    x: wa.x + Math.round((wa.width - winW) / 2),
+    y: wa.y + Math.round((wa.height - winH) / 2),
+    minWidth: 760,
+    minHeight: 520,
     frame: false,
     resizable: true,
     backgroundColor: '#FFF8E9',
@@ -366,6 +383,12 @@ function registerIpc() {
   const updateDir = path.join(app.getPath('temp'), 'nailong-update');
 
   ipcMain.handle('app-version', () => app.getVersion());
+  ipcMain.handle('win-toggle-max', (event) => {
+    const w = BrowserWindow.fromWebContents(event.sender);
+    if (!w) return false;
+    if (w.isMaximized()) w.unmaximize(); else w.maximize();
+    return w.isMaximized();
+  });
   ipcMain.handle('update-check', async () => {
     try { return await updater.check(app.getVersion()); }
     catch (e) { return { ok: false, error: e.message }; }
@@ -567,6 +590,19 @@ function registerIpc() {
   ipcMain.handle('plugin-list', () => plugins.list(app.getVersion()));
   ipcMain.handle('plugin-commands', () => pluginHost.commands());
   ipcMain.handle('plugin-status', () => pluginHost.status());
+  ipcMain.handle('plugin-auto', async (_e, q) => {
+    try {
+      const matches = pluginHost.matchIntent(q);
+      for (const m of matches) {
+        if (m.name === 'xhs' && config.xhsConsent !== 'yes') continue;
+        const r = await pluginHost.runCommand(m.name, cleanPluginQuery(q));
+        if (r.ok) return { ok: true, used: [{ name: m.name, pluginName: m.pluginName, result: r.result }] };
+      }
+      return { ok: true, used: [] };
+    } catch (e) {
+      return { ok: false, error: e.message, used: [] };
+    }
+  });
   ipcMain.handle('plugin-run', (_e, name, args) => pluginHost.runCommand(name, args));
   ipcMain.handle('plugin-set-enabled', (_e, id, enabled) => {
     plugins.setEnabled(id, enabled);
@@ -791,13 +827,13 @@ async function captureUi() {
     await shot(chatWin, 'chat-feedback.png');
     await chatWin.webContents.executeJavaScript("document.querySelector('#feedback-cancel').click(); document.querySelector('#cancel-key').click()");
     await wait(250);
-    await chatWin.webContents.executeJavaScript("document.querySelector('#plugins-btn').click()");
+    await chatWin.webContents.executeJavaScript("document.querySelector('#rail-store').click()");
     await wait(500);
     await shot(chatWin, 'chat-plugins.png');
     await chatWin.webContents.executeJavaScript("document.querySelector('#plugins-modal').classList.remove('open'); runPluginCommand('hello','')");
     await wait(800);
     await shot(chatWin, 'chat-panel.png');
-    await chatWin.webContents.executeJavaScript("document.querySelector('#panel-modal').classList.remove('open'); document.querySelector('#plugins-btn').click(); document.querySelector('.ptab[data-tab=store]').click()");
+    await chatWin.webContents.executeJavaScript("document.querySelector('#panel-modal').classList.remove('open'); document.querySelector('#rail-store').click(); document.querySelector('.ptab[data-tab=store]').click()");
     await wait(1800);
     await shot(chatWin, 'chat-store.png');
     await chatWin.webContents.executeJavaScript("document.querySelector('#plugins-modal').classList.remove('open'); openWorkshop()");
@@ -831,6 +867,9 @@ async function captureUi() {
     await chatWin.webContents.executeJavaScript("createTab(); addMsg('me','帮我做一份期末复习计划'); addMsg('nailong','好的，先按 4 周排：第 1 周过一遍知识点，第 2 周做题…')");
     await wait(500);
     await shot(chatWin, 'chat-tabs.png');
+    await chatWin.webContents.executeJavaScript("document.querySelector('#left-tab-history').click()");
+    await wait(400);
+    await shot(chatWin, 'chat-history.png');
   } catch (e) {
     console.error('[capture] failed:', e);
   } finally {
@@ -875,6 +914,23 @@ app.whenReady().then(() => {
   createPet();
   createTray();
   initPluginHost();
+  if (process.argv.includes('--autotest')) {
+    (async () => {
+      try {
+        const q = '帮我搜一下线性代数的b站公开课';
+        const m = pluginHost.matchIntent(q);
+        console.log('[autotest] matches=', JSON.stringify(m), 'query=', cleanPluginQuery(q));
+        if (!m.length) { app.exit(1); return; }
+        const r = await pluginHost.runCommand(m[0].name, cleanPluginQuery(q));
+        console.log('[autotest] run ok=', r.ok, (r.result && r.result.text) || '');
+        app.exit(r.ok ? 0 : 1);
+      } catch (e) {
+        console.error('[autotest] ERR', e.message);
+        app.exit(2);
+      }
+    })();
+    return;
+  }
   if (process.argv.includes('--xhstest')) {
     (async () => {
       try {
