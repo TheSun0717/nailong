@@ -1,20 +1,20 @@
 {
   "app": {
-    "version": "1.6.0",
+    "version": "1.7.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.6.0/nailong-Setup-1.6.0.exe",
-    "sha256": "ec7494d93bd133c819cbe73d2a9172331b0b06763d2c0a2dacd8e2a39ae16850",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.7.0/nailong-Setup-1.7.0.exe",
+    "sha256": "692959dcbd26625c487f09fb736645c59bd3d17488693287a198f9033c8c54a8",
     "notes": {
-      "summary": "能力工坊：一句话造插件。",
+      "summary": "学习/讲解插件化。",
       "items": [
-        "输入一句中文描述，生成声明式插件（不写代码）",
-        "五道闸：模板化 JSON → 结构校验 → 权限白名单 → 样例试运行 → 自动修复",
-        "生成后先预览，确认才安装",
-        "支持 web.search（B站）/ ai.ask / notify"
+        "第一方插件「学习资料助手」：/study、/kb-stats",
+        "第一方插件「讲解工坊」：/explain、/video",
+        "能力总线补 kb.list / kb.profile / teach.explain 与 teach 权限",
+        "内置插件随包安装，可启停/卸载"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.6.0/nailong-Setup-1.6.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.7.0/nailong-Setup-1.7.0.exe"
     ]
   },
   "plugins": [
