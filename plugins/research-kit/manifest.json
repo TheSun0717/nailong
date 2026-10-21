@@ -10,20 +10,123 @@
     "whatHappens": "奶龙会列出视频或笔记的标题、作者和热度，点「打开」就能看。",
     "ifFails": "检查网络；小红书需要在内置窗口登录一次；被安全验证时按页面提示操作后再试。"
   },
-  "permissions": ["chat", "web", "ui"],
+  "permissions": [
+    "chat",
+    "web",
+    "ui"
+  ],
   "capabilities": [],
   "commands": [
     {
       "name": "bili",
       "description": "搜索 B 站视频，例如 /bili 线性代数",
-      "triggers": ["b站", "bilibili", "公开课"],
-      "action": { "type": "web.search", "platform": "bilibili", "queryFrom": "args" }
+      "triggers": [
+        "b站",
+        "bilibili",
+        "公开课"
+      ],
+      "action": {
+        "type": "web.search",
+        "platform": "bilibili",
+        "queryFrom": "args"
+      }
     },
     {
       "name": "xhs",
       "description": "搜索小红书笔记，例如 /xhs 北邮 人工智能",
-      "triggers": ["小红书", "xhs"],
-      "action": { "type": "web.search", "platform": "xiaohongshu", "queryFrom": "args" }
+      "triggers": [
+        "小红书",
+        "xhs"
+      ],
+      "action": {
+        "type": "web.search",
+        "platform": "xiaohongshu",
+        "queryFrom": "args"
+      }
+    },
+    {
+      "name": "zhihu",
+      "description": "搜索知乎经验",
+      "triggers": [
+        "知乎"
+      ],
+      "action": {
+        "type": "web.search",
+        "platform": "zhihu",
+        "queryFrom": "args"
+      }
+    },
+    {
+      "name": "douban",
+      "description": "搜索豆瓣小组经验",
+      "triggers": [
+        "豆瓣"
+      ],
+      "action": {
+        "type": "web.search",
+        "platform": "douban",
+        "queryFrom": "args"
+      }
+    },
+    {
+      "name": "tieba",
+      "description": "搜索贴吧经验",
+      "triggers": [
+        "贴吧"
+      ],
+      "action": {
+        "type": "web.search",
+        "platform": "tieba",
+        "queryFrom": "args"
+      }
+    },
+    {
+      "name": "weibo",
+      "description": "搜索微博经验",
+      "triggers": [
+        "微博"
+      ],
+      "action": {
+        "type": "web.search",
+        "platform": "weibo",
+        "queryFrom": "args"
+      }
+    },
+    {
+      "name": "nowcoder",
+      "description": "搜索牛客经验",
+      "triggers": [
+        "牛客"
+      ],
+      "action": {
+        "type": "web.search",
+        "platform": "nowcoder",
+        "queryFrom": "args"
+      }
+    },
+    {
+      "name": "csdn",
+      "description": "搜索 CSDN 技术经验",
+      "triggers": [
+        "csdn"
+      ],
+      "action": {
+        "type": "web.search",
+        "platform": "csdn",
+        "queryFrom": "args"
+      }
+    },
+    {
+      "name": "juejin",
+      "description": "搜索掘金技术经验",
+      "triggers": [
+        "掘金"
+      ],
+      "action": {
+        "type": "web.search",
+        "platform": "juejin",
+        "queryFrom": "args"
+      }
     }
   ],
   "firstParty": false

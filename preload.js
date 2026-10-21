@@ -8,7 +8,7 @@ contextBridge.exposeInMainWorld('nailong', {
 
   // AI
   ask: (q) => ipcRenderer.invoke('ai-ask', q),
-  askStream: (id, q) => ipcRenderer.send('ai-ask-stream', { id, q }),
+  askStream: (id, q, history) => ipcRenderer.send('ai-ask-stream', { id, q, history }),
   onStream: (cb) => ipcRenderer.on('ai-stream', (_e, p) => cb(p)),
 
   // 会话
@@ -21,8 +21,10 @@ contextBridge.exposeInMainWorld('nailong', {
 
   // 学习知识库
   saveNote: (text) => ipcRenderer.invoke('save-note', text),
-  generateExplainer: (text) => ipcRenderer.invoke('explain-generate', text),
+  generateExplainer: (payload) => ipcRenderer.invoke('explain-generate', payload),
   openExplainer: (file) => ipcRenderer.invoke('explain-open', file),
+  listArtifacts: () => ipcRenderer.invoke('artifacts-list'),
+  openArtifact: (file) => ipcRenderer.invoke('artifact-open', file),
   generateVideo: (text) => ipcRenderer.invoke('video-generate', text),
   onVideoProgress: (cb) => ipcRenderer.on('video-progress', (_e, p) => cb(p)),
   openVideo: (file) => ipcRenderer.invoke('video-open', file),
@@ -67,6 +69,7 @@ contextBridge.exposeInMainWorld('nailong', {
 
   // 更新
   getAppVersion: () => ipcRenderer.invoke('app-version'),
+  minimize: () => ipcRenderer.invoke('win-minimize'),
   toggleMaximize: () => ipcRenderer.invoke('win-toggle-max'),
   checkUpdate: () => ipcRenderer.invoke('update-check'),
   downloadUpdate: (url, mirrors, sha256) => ipcRenderer.invoke('update-download', { url, mirrors, sha256 }),

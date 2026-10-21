@@ -405,6 +405,11 @@
     background: transparent; backdrop-filter: none;
   }
   #plugins-modal.open { display: block; transform: none; pointer-events: auto; }
+  #drawer-backdrop {
+    display: none; position: fixed; inset: 0; z-index: 29;
+    background: rgba(58, 42, 26, .25);
+  }
+  #drawer-backdrop.show { display: block; }
   #plugins-modal .card {
     width: 100%; height: 100%; max-height: none; min-height: 100%;
     border-radius: 0 18px 18px 0; border-left: 0; padding: 18px 16px;
@@ -567,6 +572,7 @@
       <div class="rail-tabs">
         <button id="left-tab-files" class="rail-tab active">文件</button>
         <button id="left-tab-history" class="rail-tab">历史</button>
+        <button id="left-tab-artifacts" class="rail-tab">作品</button>
       </div>
       <div id="left-files" class="left-pane active">
         <button id="file-import" class="left-btn">＋ 导入文件</button>
@@ -575,6 +581,10 @@
       <div id="left-history" class="left-pane">
         <button id="history-new" class="left-btn">＋ 新对话</button>
         <div id="history-list"></div>
+      </div>
+      <div id="left-artifacts" class="left-pane">
+        <button id="artifacts-refresh" class="left-btn">↻ 刷新作品</button>
+        <div id="artifact-list"></div>
       </div>
     </aside>
 
@@ -588,6 +598,7 @@
           </div>
         </div>
         <div class="header-actions">
+          <button class="icon-btn" id="win-min" title="最小化">–</button>
           <button class="icon-btn" id="win-max" title="全屏 / 还原">⤢</button>
           <button class="icon-btn" id="close" title="关闭">✕</button>
         </div>
@@ -613,6 +624,7 @@
 
     <aside id="right-rail">
       <button class="rail-btn" id="rail-store" title="插件商城">🛍</button>
+      <button class="rail-btn" id="rail-workshop" title="能力工坊">🛠</button>
       <button class="rail-btn" id="study-btn" title="学习助手">🎓</button>
       <button class="rail-btn" id="explain-btn" title="把输入框里的题做成讲解页">🧩</button>
       <button class="rail-btn" id="video-btn" title="生成讲解视频">🎬</button>
@@ -622,6 +634,8 @@
       <button class="rail-btn" id="rail-feedback" title="问题反馈">📮</button>
     </aside>
   </div>
+
+  <div id="drawer-backdrop"></div>
 
   <template id="empty-tpl">
     <div class="empty">
@@ -833,6 +847,7 @@
   let tabs = [];
   let activeId = null;
   let emptyArtUrl = '';
+  let lastImageName = '';
   let saveTimer = null;
   const pendingStreams = new Map();
 
@@ -1182,7 +1197,7 @@
     const wrap = addMsg('nailong', '', { typing: true, tab });
     const id = 's' + Date.now() + Math.random().toString(36).slice(2, 6);
     pendingStreams.set(id, { wrap, bubble: wrap.querySelector('.bubble'), text: '', started: false, q, tabId: tab.id });
-    window.nailong.askStream(id, q);
+    window.nailong.askStream(id, q, tab.history.slice(-12));
     window.nailong.autoPlugin(q).then((auto) => {
       if (auto && auto.ok && Array.isArray(auto.used) && auto.used.length) renderAutoPlugin(auto.used, tab);
     }).catch(() => {});
@@ -1271,7 +1286,7 @@
     const stack = wrap.querySelector('.stack');
 
     try {
-      const res = await window.nailong.generateExplainer(q);
+      const res = await window.nailong.generateExplainer({ text: q, imagePath: lastImageName || null });
       if (res.ok) {
         bub.innerHTML = renderMd('讲解页做好啦，已经在独立窗口打开。\n\n关掉了也没关系，点下面的按钮可以再打开。');
         addAction(stack, '再打开讲解页', () => window.nailong.openExplainer(res.path));
@@ -1349,6 +1364,7 @@
 
     const img = names.find((n) => /\.(png|jpe?g|webp|bmp)$/i.test(n));
     if (!img) return;
+    lastImageName = img;
     toast('正在识别图片里的文字…');
     const res = await window.nailong.ocrFile(img);
     if (typeof res === 'string' && res.trim()) {
@@ -1431,6 +1447,36 @@
         refreshFiles();
       };
       row.append(name, open, del);
+      box.appendChild(row);
+    }
+  }
+
+  /* ---------- 作品库 ---------- */
+  async function renderArtifacts() {
+    const box = $('#artifact-list');
+    if (!box) return;
+    box.innerHTML = '';
+    let items = [];
+    try { items = await window.nailong.listArtifacts(); } catch (_) {}
+    if (!items.length) {
+      const d = document.createElement('div');
+      d.className = 'history-empty';
+      d.textContent = '还没有作品。生成讲解页或视频后会出现在这里，重启也不会丢。';
+      box.appendChild(d);
+      return;
+    }
+    for (const it of items) {
+      const row = document.createElement('div');
+      row.className = 'history-item';
+      const title = document.createElement('div');
+      title.className = 'hi-title';
+      title.textContent = (it.type === 'video' ? '🎬 ' : '🧩 ') + (it.name || '未命名');
+      const meta = document.createElement('div');
+      meta.className = 'hi-meta';
+      meta.textContent = (it.type === 'video' ? '视频 · ' : '讲解页 · ') +
+        new Date(it.ts).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+      row.append(title, meta);
+      row.onclick = () => window.nailong.openArtifact(it.path);
       box.appendChild(row);
     }
   }
@@ -1531,13 +1577,16 @@
   $('#rail-update').onclick = () => checkUpdate();
   $('#rail-feedback').onclick = () => $('#feedback-modal').classList.add('open');
   $('#history-new').onclick = () => { createTab(); renderHistoryList(); };
+  $('#artifacts-refresh').onclick = () => renderArtifacts();
   document.querySelectorAll('.rail-tab').forEach((b) => {
     b.onclick = () => {
       document.querySelectorAll('.rail-tab').forEach((x) => x.classList.toggle('active', x === b));
-      const which = b.id === 'left-tab-history' ? 'history' : 'files';
+      const which = b.id === 'left-tab-history' ? 'history' : (b.id === 'left-tab-artifacts' ? 'artifacts' : 'files');
       $('#left-files').classList.toggle('active', which === 'files');
       $('#left-history').classList.toggle('active', which === 'history');
+      $('#left-artifacts').classList.toggle('active', which === 'artifacts');
       if (which === 'history') renderHistoryList();
+      else if (which === 'artifacts') renderArtifacts();
       else refreshFiles();
     };
   });
@@ -1691,7 +1740,13 @@
   /* ---------- 插件 ---------- */
   async function openPlugins() {
     $('#plugins-modal').classList.add('open');
+    $('#drawer-backdrop').classList.add('show');
     await renderPlugins();
+  }
+
+  function closePlugins() {
+    $('#plugins-modal').classList.remove('open');
+    $('#drawer-backdrop').classList.remove('show');
   }
 
   let pluginTab = 'installed';
@@ -1927,11 +1982,18 @@
     $('#panel-modal').classList.add('open');
   }
 
-  $('#rail-store').onclick = openPlugins;
+  $('#rail-store').onclick = () => {
+    const m = $('#plugins-modal');
+    if (m.classList.contains('open')) closePlugins();
+    else openPlugins();
+  };
+  $('#drawer-backdrop').onclick = () => closePlugins();
+  $('#rail-workshop').onclick = () => openWorkshop();
+  $('#win-min').onclick = () => window.nailong.minimize();
   document.querySelectorAll('.ptab').forEach((b) => {
     b.onclick = () => { pluginTab = b.dataset.tab; renderPlugins(); };
   });
-  $('#plugins-close').onclick = () => $('#plugins-modal').classList.remove('open');
+  $('#plugins-close').onclick = closePlugins;
   $('#panel-close').onclick = () => $('#panel-modal').classList.remove('open');
   if (window.nailong.onPluginNotify) {
     window.nailong.onPluginNotify((t) => toast(String(t || '')));

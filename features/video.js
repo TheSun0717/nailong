@@ -11,13 +11,14 @@ const FPS = 15;
 const STORY_SYSTEM = `你是教学视频编剧。把用户给的知识点或题目拆成 5 到 7 个镜头，只输出 JSON，不要代码围栏。
 
 JSON 结构：
-{"title":"视频标题","subject":"学科","scenes":[{"title":"镜头标题","bullets":["要点1","要点2"],"narration":"这一镜的旁白"}]}
+{"title":"视频标题","subject":"学科","scenes":[{"title":"镜头标题","bullets":["要点1","要点2"],"narration":"这一镜的旁白","visual":{"type":"triangle|axes|flow|none","data":{}}}]}
 
 要求：
 - 第 1 镜引入问题并说明「学完你会什么」，最后 1 镜总结。
 - 每个镜头 2 到 4 条 bullet，每条不超过 20 个汉字。
 - narration 是可直接朗读的口语中文，40 到 90 字；不要出现 Markdown、序号、括号符号、公式符号；数学表达式用中文念法（例如 a 的平方加 b 的平方等于 c 的平方）。
 - 内容要准确、具体，不写空话。
+- 每个镜头尽量带 visual：triangle（三角形，data 用 a/b/c/aLabel/bLabel/cLabel）、axes（坐标轴，data 用 points 数组）、flow（流程，data 用 nodes 数组）、none（不需要图）。
 - 只输出 JSON。`;
 
 function extractJson(raw) {
@@ -94,12 +95,62 @@ async function storyboard(topic, config) {
   return { title: String(data.title || topic).slice(0, 80), subject: String(data.subject || '知识点'), scenes };
 }
 
+function svgForVisual(v) {
+  const type = (v && v.type) || 'none';
+  const d = (v && v.data) || {};
+  if (type === 'triangle') {
+    const a = d.aLabel || d.a || 'a', b = d.bLabel || d.b || 'b', c = d.cLabel || d.c || 'c';
+    return '<svg viewBox="0 0 460 340">' +
+      '<polygon points="60,290 60,70 400,290" fill="rgba(255,201,60,.2)" stroke="#3A2A1A" stroke-width="3"/>' +
+      '<rect x="60" y="270" width="20" height="20" fill="none" stroke="#3A2A1A" stroke-width="2"/>' +
+      '<text x="28" y="190" font-size="20" fill="#3B6EA5">' + esc(b) + '</text>' +
+      '<text x="220" y="325" font-size="20" fill="#C08A17">' + esc(a) + '</text>' +
+      '<text x="250" y="165" font-size="20" fill="#3A2A1A">' + esc(c) + '</text></svg>';
+  }
+  if (type === 'axes') {
+    let s = '<svg viewBox="0 0 460 340"><line x1="50" y1="290" x2="430" y2="290" stroke="#3A2A1A" stroke-width="2"/><line x1="70" y1="40" x2="70" y2="300" stroke="#3A2A1A" stroke-width="2"/>';
+    const cv = d.curve;
+    if (cv && cv.type === 'parabola') {
+      const a = Number(cv.a) || 1, b = Number(cv.b) || 0, c = Number(cv.c) || 0;
+      let path = '';
+      for (let k = 0; k <= 60; k++) {
+        const x = -4 + (8 * k) / 60;
+        const y = a * x * x + b * x + c;
+        path += (k ? 'L' : 'M') + (70 + ((x + 4) / 8) * 340).toFixed(1) + ',' + Math.max(20, Math.min(300, 290 - (y + 5) * 20)).toFixed(1);
+      }
+      s += '<path d="' + path + '" fill="none" stroke="#3B6EA5" stroke-width="3"/>';
+    }
+    (d.points || []).slice(0, 8).forEach((p) => {
+      const px = 70 + ((Number(p.x) + 4) / 8) * 340;
+      const py = Math.max(20, Math.min(300, 290 - (Number(p.y) + 5) * 20));
+      s += '<circle cx="' + px + '" cy="' + py + '" r="5" fill="#E8A20A"/>';
+      if (p.label) s += '<text x="' + (px + 8) + '" y="' + (py - 8) + '" font-size="16">' + esc(p.label) + '</text>';
+    });
+    return s + '</svg>';
+  }
+  if (type === 'flow') {
+    const nodes = (d.nodes || []).slice(0, 5);
+    let s = '<svg viewBox="0 0 460 340">';
+    nodes.forEach((n, k) => {
+      const y = 40 + k * 60;
+      s += '<rect x="60" y="' + y + '" width="340" height="40" rx="10" fill="rgba(255,201,60,.22)" stroke="#3A2A1A" stroke-width="2"/>';
+      s += '<text x="80" y="' + (y + 26) + '" font-size="15">' + esc(n) + '</text>';
+      if (k < nodes.length - 1) s += '<line x1="230" y1="' + (y + 40) + '" x2="230" y2="' + (y + 60) + '" stroke="#3A2A1A" stroke-width="2"/>';
+    });
+    return s + '</svg>';
+  }
+  return '';
+}
+
 function buildHtml(data, timeline, totalMs) {
   const scenesHtml = data.scenes.map((s, i) => `
     <section class="scene${i === 0 ? ' active' : ''}">
       <div class="kicker">${esc(data.subject)}</div>
       <h1>${esc(s.title)}</h1>
-      <ul>${s.bullets.map((b) => `<li><span class="dot"></span><span>${esc(b)}</span></li>`).join('')}</ul>
+      <div class="cols">
+        <div class="txt"><ul>${s.bullets.map((b) => `<li><span class="dot"></span><span>${esc(b)}</span></li>`).join('')}</ul></div>
+        ${svgForVisual(s.visual) ? `<div class="vis">${svgForVisual(s.visual)}</div>` : ''}
+      </div>
       <p class="sub">${esc(s.narration)}</p>
     </section>`).join('');
 
@@ -118,6 +169,10 @@ function buildHtml(data, timeline, totalMs) {
   ul { list-style: none; display: flex; flex-direction: column; gap: 16px; }
   li { font-size: 28px; line-height: 1.5; display: flex; gap: 14px; align-items: flex-start; }
   .dot { width: 11px; height: 11px; border-radius: 50%; background: #F2A81D; margin-top: 15px; flex: 0 0 auto; }
+  .cols { display: flex; gap: 34px; align-items: center; }
+  .cols .txt { flex: 1; min-width: 0; }
+  .vis { flex: 0 0 40%; max-width: 420px; }
+  .vis svg { width: 100%; height: auto; max-height: 300px; }
   .sub { position: absolute; left: 84px; right: 84px; bottom: 58px; font-size: 20px; line-height: 1.55; color: #8A7860; }
   .bar { position: absolute; left: 0; bottom: 0; height: 6px; width: 0; background: #F2A81D; }
 </style></head>

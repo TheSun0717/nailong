@@ -1,54 +1,305 @@
-// 教学可视化：把一个知识点/题目生成为自包含的单文件 HTML 讲解页
+// 教学可视化 v2：结构化解题 → 二次校验 → 固定动画模板（SVG 图示 + 分步动画）。
+const fs = require('fs');
+const path = require('path');
 const ai = require('../ai');
 
-const SYSTEM = `你是「奶龙」的教学可视化模式，负责把知识点或题目做成一个可以直接看懂的单文件 HTML 讲解页。
+const SOLVE_SYSTEM = `你是严谨的学科老师。解出题目并输出一张「解题卡」JSON，只输出 JSON，不要 Markdown 围栏。
 
-硬性要求：
-1. 只输出完整 HTML（从 <!DOCTYPE html> 到 </html>），不要解释、不要 Markdown 代码围栏。
-2. 所有 CSS 和 JS 内联；不引用任何外部资源（无 CDN、无网络字体、无外链图片、无 MathJax）。公式只用 HTML 表示（上标用 <sup>、下标用 <sub>），禁止出现 LaTeX 定界符（\\( \\)、\\[ \\]、$...$）。
-3. 中文；内容必须准确；如果是一道题，给出完整解答。
-4. 页面结构固定为：
-   - 顶部标题 + 一句话「学完你会什么」+ 学科标签；
-   - 核心概念区：一个手写 SVG 示意图（用图形表达关系，不要用 emoji 当插图）；
-   - 分步讲解区：3 到 6 步，点「下一步」逐步展开，带进度点、上一步/下一步/重置按钮，支持 ← → 方向键；
-   - 易错点区：2 到 4 条；
-   - 30 秒自测：1 到 2 个问题，答案可展开。
-5. 动效克制：步骤切换 200-300ms 过渡，不闪烁；尊重 prefers-reduced-motion。
-6. 版式：奶油底色 #FFFBF2、正文色 #2E2419、强调色 #F2A81D、图示辅助色 #3B6EA5；圆角 16px，留白充足；适配 1100x800 和手机宽度。
-7. 不写「示意图」「示例」「本页由 AI 生成」这类制作说明；页面上不出现未实现的功能。
-8. SVG 必须完整闭合，坐标在 viewBox 内；核心概念区最多画 2 个主体图形；标签放在图形外侧；文字与文字、文字与图形之间至少留 32px，不允许重叠；文字不要溢出。
-
-只输出 HTML。`;
-
-function extractHtml(raw) {
-  let s = String(raw || '').trim();
-  const fence = s.match(/```(?:html)?\s*([\s\S]*?)```/i);
-  if (fence) s = fence[1].trim();
-  const start = s.search(/<!DOCTYPE|<html/i);
-  if (start < 0) return '';
-  s = s.slice(start);
-  const end = s.toLowerCase().lastIndexOf('</html>');
-  if (end > 0) s = s.slice(0, end + 7);
-  return s;
+结构：
+{
+  "title": "标题",
+  "subject": "学科",
+  "question": "题目（原样或整理后）",
+  "given": ["已知条件1", "..."],
+  "steps": [
+    {
+      "title": "这一步做什么",
+      "body": "为什么这样做，讲清楚",
+      "formula": "关键公式（普通文本，可用 ^ 表示上标）",
+      "visual": { "type": "triangle|axes|flow|none", "data": { } }
+    }
+  ],
+  "answer": "最终答案",
+  "pitfalls": ["易错点1", "..."],
+  "checkpoint": "一句话自测"
 }
 
-// 生成页只允许内联资源，禁止联网/本地文件读取；顺手去掉模型残留的 LaTeX 定界符
-function lockDown(html) {
-  let out = String(html)
-    .replace(/\\\(|\\\)|\\\[|\\\]/g, '')
-    .replace(/\$\$([^$]+)\$\$/g, '$1')
-    .replace(/\$([^$\n]+)\$/g, '$1');
-  const csp = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'; img-src data:; font-src data:">';
-  if (/<head[^>]*>/i.test(out)) out = out.replace(/<head[^>]*>/i, (m) => m + '\n' + csp);
-  else out = csp + out;
-  return out;
+要求：
+- 每一步都必须可验证；先写已知，再推导，最后给答案。
+- 如果题目带图，先根据图写出已知条件，再做。
+- visual 用来画示意图：
+  - triangle: {"a":"3","b":"4","c":"5","aLabel":"3","bLabel":"4","cLabel":"5"}
+  - axes: {"points":[{"x":0,"y":0,"label":"O"}],"curve":{"type":"line|parabola","a":1,"b":0,"c":0}}
+  - flow: {"nodes":["步骤A","步骤B","步骤C"]}
+  - 不需要图就用 {"type":"none"}
+- 公式不要用 LaTeX 定界符；用普通文本。
+- 每个步骤的 visual 都必须给；至少两个步骤要有图示（triangle/axes/flow），不能全是 none。
+- 只输出 JSON。`;
+
+const VERIFY_SYSTEM = `你是严格的阅卷老师。检查下面解题卡的每一步推导和最终答案是否正确、是否与题目条件一致。
+
+只输出 JSON：
+{"ok": true/false, "issues": ["问题1", "..."], "corrected": {完整修正后的解题卡，结构同输入}}
+
+要求：
+- 如果答案或任一步骤有错，ok=false，并在 corrected 里给出修正后的完整解题卡。
+- 如果没有错误，ok=true，corrected 可以为 null。
+- corrected 必须保持同样的 JSON 结构。`;
+
+function extractJson(raw) {
+  const s = String(raw || '');
+  const start = s.indexOf('{');
+  const end = s.lastIndexOf('}');
+  if (start < 0 || end <= start) return null;
+  try { return JSON.parse(s.slice(start, end + 1)); } catch { return null; }
 }
 
-async function generate(question, config) {
-  const raw = await ai.askDeepSeek(String(question || '').trim(), config, SYSTEM, 0.5);
-  const html = extractHtml(raw);
-  if (!html || html.length < 400) throw new Error('模型没有返回完整讲解页，再试一次吧');
-  return lockDown(html);
+function isSpec(v) {
+  return v && typeof v === 'object' && Array.isArray(v.steps) && v.steps.length > 0;
 }
 
-module.exports = { generate, extractHtml, lockDown, SYSTEM };
+function normalizeSpec(spec) {
+  const s = spec || {};
+  const steps = (Array.isArray(s.steps) ? s.steps : []).slice(0, 10).map((st) => ({
+    title: String((st && st.title) || '').slice(0, 80),
+    body: String((st && st.body) || '').slice(0, 600),
+    formula: String((st && st.formula) || '').slice(0, 200),
+    visual: st && st.visual && typeof st.visual === 'object' ? st.visual : { type: 'none', data: {} },
+  }));
+  return {
+    title: String(s.title || '知识点讲解').slice(0, 80),
+    subject: String(s.subject || '学习').slice(0, 20),
+    question: String(s.question || '').slice(0, 400),
+    given: (Array.isArray(s.given) ? s.given : []).slice(0, 8).map((x) => String(x).slice(0, 120)),
+    steps,
+    answer: String(s.answer || '').slice(0, 400),
+    pitfalls: (Array.isArray(s.pitfalls) ? s.pitfalls : []).slice(0, 6).map((x) => String(x).slice(0, 160)),
+    checkpoint: String(s.checkpoint || '').slice(0, 200),
+  };
+}
+
+function imageData(file) {
+  const buf = fs.readFileSync(file);
+  const ext = path.extname(file).toLowerCase();
+  const mime = ext === '.png' ? 'image/png' : (ext === '.webp' ? 'image/webp' : 'image/jpeg');
+  return `data:${mime};base64,${buf.toString('base64')}`;
+}
+
+async function solve(topic, config, imagePath) {
+  const prompt = `${SOLVE_SYSTEM}\n\n题目/知识点：\n${topic}`;
+  let raw;
+  if (imagePath) {
+    try {
+      raw = await ai.askWithImage(prompt, config, SOLVE_SYSTEM, imageData(imagePath), 0.2);
+    } catch (_) {
+      raw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, 0.2);
+    }
+  } else {
+    raw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, 0.2);
+  }
+  const spec = extractJson(raw);
+  if (!isSpec(spec)) throw new Error('模型没有返回解题卡');
+  return normalizeSpec(spec);
+}
+
+async function verify(spec, config) {
+  try {
+    const raw = await ai.askDeepSeek(
+      `${VERIFY_SYSTEM}\n\n解题卡：\n${JSON.stringify(spec)}`, config, VERIFY_SYSTEM, 0);
+    const v = extractJson(raw);
+    if (!v) return { spec, issues: [] };
+    if (v.corrected && isSpec(v.corrected)) return { spec: normalizeSpec(v.corrected), issues: v.issues || [] };
+    return { spec, issues: v.issues || [] };
+  } catch (_) {
+    return { spec, issues: [] };
+  }
+}
+
+function renderHtml(spec, issues = []) {
+  const safeSpec = JSON.stringify(spec).replace(/</g, '\\u003c');
+  const safeIssues = JSON.stringify(issues).replace(/</g, '\\u003c');
+  return `<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; background: #FFFBF2; color: #2E2419; }
+  body { font-family: "Microsoft YaHei UI", "PingFang SC", sans-serif; }
+  .wrap { display: grid; grid-template-columns: 46% 54%; min-height: 100vh; }
+  .stage { padding: 40px 24px 40px 40px; display: flex; flex-direction: column; justify-content: center; }
+  .stage-box { background: #FFF6E2; border: 1.5px solid rgba(58,42,26,.12); border-radius: 20px; padding: 22px; min-height: 420px; display: flex; align-items: center; justify-content: center; }
+  .stage svg { width: 100%; height: auto; max-height: 420px; }
+  .panel { padding: 40px 44px 40px 20px; display: flex; flex-direction: column; justify-content: center; }
+  .kicker { font-size: 13px; letter-spacing: 3px; color: #C08A17; margin-bottom: 10px; }
+  h1 { font-size: 30px; line-height: 1.3; margin-bottom: 16px; }
+  .question { font-size: 13px; color: #8A7860; line-height: 1.6; margin-bottom: 18px; }
+  .card { background: #FFFDF8; border: 1.5px solid rgba(58,42,26,.12); border-radius: 16px; padding: 20px 22px; min-height: 220px; box-shadow: 0 2px 0 rgba(58,42,26,.06); }
+  .card h2 { font-size: 20px; margin-bottom: 10px; }
+  .card p { font-size: 15px; line-height: 1.8; }
+  .formula { margin-top: 14px; padding: 10px 14px; background: #FFF0C8; border-radius: 10px; font-family: Consolas, monospace; font-size: 15px; }
+  .answer { margin-top: 14px; font-size: 17px; font-weight: 700; color: #A96F00; }
+  .nav { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+  .nav button { border: 1.5px solid rgba(58,42,26,.16); background: #FFFDF8; border-radius: 999px; padding: 7px 14px; font-size: 13px; font-family: inherit; cursor: pointer; color: #2E2419; }
+  .nav button.primary { background: #FFC93C; border-color: #E8A20A; font-weight: 700; box-shadow: 0 2px 0 #E8A20A; }
+  .nav button:disabled { opacity: .45; cursor: default; }
+  .dots { flex: 1; display: flex; gap: 6px; justify-content: center; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(58,42,26,.18); transition: background .2s, transform .2s; cursor: pointer; }
+  .dot.on { background: #E8A20A; transform: scale(1.35); }
+  .pitfalls { margin-top: 16px; font-size: 12.5px; color: #8A7860; line-height: 1.7; }
+  .pitfalls b { color: #B4543A; }
+  .warn { margin-top: 10px; font-size: 12px; color: #B4543A; }
+  .fade { animation: fade .28s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .draw { stroke-dasharray: 600; stroke-dashoffset: 600; animation: draw .9s ease forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @media (max-width: 820px) { .wrap { grid-template-columns: 1fr; } .stage { padding: 20px; } .panel { padding: 8px 20px 30px; } }
+</style></head>
+<body>
+<div class="wrap">
+  <div class="stage"><div class="stage-box" id="diagram"></div></div>
+  <div class="panel">
+    <div class="kicker" id="kicker"></div>
+    <h1 id="title"></h1>
+    <div class="question" id="question"></div>
+    <div class="card" id="card">
+      <h2 id="step-title"></h2>
+      <p id="step-body"></p>
+      <div class="formula" id="step-formula"></div>
+      <div class="answer" id="answer"></div>
+    </div>
+    <div class="nav">
+      <button id="prev">← 上一步</button>
+      <div class="dots" id="dots"></div>
+      <button id="next" class="primary">下一步 →</button>
+    </div>
+    <div class="pitfalls" id="pitfalls"></div>
+    <div class="warn" id="warn"></div>
+  </div>
+</div>
+<script>
+  const SPEC = ${safeSpec};
+  const ISSUES = ${safeIssues};
+  const steps = SPEC.steps.slice();
+  if (SPEC.answer) steps.push({ title: '答案', body: SPEC.checkpoint || '对照上面的推导，自己再复述一遍。', formula: '', visual: { type: 'none' }, answer: SPEC.answer });
+  let i = 0;
+  let timer = null;
+  const el = (id) => document.getElementById(id);
+
+  el('kicker').textContent = SPEC.subject;
+  el('title').textContent = SPEC.title;
+  el('question').textContent = SPEC.question;
+  el('pitfalls').innerHTML = (SPEC.pitfalls && SPEC.pitfalls.length)
+    ? '<b>易错点：</b>' + SPEC.pitfalls.map((p) => '　• ' + p).join('<br>') : '';
+  if (ISSUES && ISSUES.length) el('warn').textContent = '校验提示：' + ISSUES.join('；');
+
+  function svgTriangle(d) {
+    const a = d.aLabel || d.a || 'a', b = d.bLabel || d.b || 'b', c = d.cLabel || d.c || 'c';
+    return '<svg viewBox="0 0 460 340">' +
+      '<polygon points="60,290 60,70 400,290" fill="rgba(255,201,60,.2)" stroke="#3A2A1A" stroke-width="3" class="draw"/>' +
+      '<rect x="60" y="270" width="20" height="20" fill="none" stroke="#3A2A1A" stroke-width="2"/>' +
+      '<text x="28" y="190" font-size="20" fill="#3B6EA5">' + b + '</text>' +
+      '<text x="220" y="325" font-size="20" fill="#C08A17">' + a + '</text>' +
+      '<text x="250" y="165" font-size="20" fill="#3A2A1A">' + c + '</text>' +
+      '</svg>';
+  }
+  function svgAxes(d) {
+    const pts = (d.points || []).slice(0, 8);
+    let s = '<svg viewBox="0 0 460 340">' +
+      '<line x1="50" y1="290" x2="430" y2="290" stroke="#3A2A1A" stroke-width="2"/>' +
+      '<line x1="70" y1="40" x2="70" y2="300" stroke="#3A2A1A" stroke-width="2"/>';
+    const cv = d.curve || null;
+    if (cv && cv.type === 'parabola') {
+      const a = Number(cv.a) || 1, b = Number(cv.b) || 0, c = Number(cv.c) || 0;
+      let path = '';
+      for (let k = 0; k <= 60; k++) {
+        const x = -4 + (8 * k) / 60;
+        const y = a * x * x + b * x + c;
+        const px = 70 + ((x + 4) / 8) * 340;
+        const py = 290 - (y + 5) * 20;
+        path += (k ? 'L' : 'M') + px.toFixed(1) + ',' + Math.max(20, Math.min(300, py)).toFixed(1);
+      }
+      s += '<path d="' + path + '" fill="none" stroke="#3B6EA5" stroke-width="3" class="draw"/>';
+    } else if (cv && cv.type === 'line') {
+      const a = Number(cv.a) || 1, b = Number(cv.b) || 0;
+      s += '<line x1="70" y1="' + (290 - b * 20) + '" x2="410" y2="' + (290 - (a * 4 + b) * 20) + '" stroke="#3B6EA5" stroke-width="3" class="draw"/>';
+    }
+    pts.forEach((p) => {
+      const px = 70 + ((Number(p.x) + 4) / 8) * 340;
+      const py = Math.max(20, Math.min(300, 290 - (Number(p.y) + 5) * 20));
+      s += '<circle cx="' + px + '" cy="' + py + '" r="5" fill="#E8A20A"/>';
+      if (p.label) s += '<text x="' + (px + 8) + '" y="' + (py - 8) + '" font-size="16" fill="#3A2A1A">' + p.label + '</text>';
+    });
+    return s + '</svg>';
+  }
+  function svgFlow(d) {
+    const nodes = (d.nodes || []).slice(0, 5);
+    let s = '<svg viewBox="0 0 460 340">';
+    nodes.forEach((n, k) => {
+      const y = 40 + k * 60;
+      s += '<rect x="60" y="' + y + '" width="340" height="40" rx="10" fill="rgba(255,201,60,.22)" stroke="#3A2A1A" stroke-width="2" class="draw"/>';
+      s += '<text x="80" y="' + (y + 26) + '" font-size="15" fill="#2E2419">' + n + '</text>';
+      if (k < nodes.length - 1) s += '<line x1="230" y1="' + (y + 40) + '" x2="230" y2="' + (y + 60) + '" stroke="#3A2A1A" stroke-width="2"/>';
+    });
+    return s + '</svg>';
+  }
+  function renderDiagram(v) {
+    const box = el('diagram');
+    const type = (v && v.type) || 'none';
+    let html = '';
+    if (type === 'triangle') html = svgTriangle(v.data || {});
+    else if (type === 'axes') html = svgAxes(v.data || {});
+    else if (type === 'flow') html = svgFlow(v.data || {});
+    if (!html) {
+      const st = steps[i] || {};
+      html = '<div style="font-size:22px;line-height:1.7;text-align:center;padding:20px">' +
+        (st.formula || st.title || '') + '</div>';
+    }
+    box.innerHTML = html;
+    box.classList.remove('fade'); void box.offsetWidth; box.classList.add('fade');
+  }
+  function show(n) {
+    i = Math.max(0, Math.min(steps.length - 1, n));
+    const st = steps[i];
+    el('step-title').textContent = st.title || '';
+    el('step-body').textContent = st.body || '';
+    el('step-formula').textContent = st.formula || '';
+    el('step-formula').style.display = st.formula ? 'block' : 'none';
+    el('answer').textContent = st.answer ? '答案：' + st.answer : '';
+    el('answer').style.display = st.answer ? 'block' : 'none';
+    el('prev').disabled = i === 0;
+    el('next').textContent = i === steps.length - 1 ? '重来 ↺' : '下一步 →';
+    const dots = el('dots'); dots.innerHTML = '';
+    steps.forEach((_, k) => {
+      const d = document.createElement('span');
+      d.className = 'dot' + (k === i ? ' on' : '');
+      d.onclick = () => { stop(); show(k); };
+      dots.appendChild(d);
+    });
+    renderDiagram(st.visual);
+    el('card').classList.remove('fade'); void el('card').offsetWidth; el('card').classList.add('fade');
+    if (i === steps.length - 1) stop();
+  }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } }
+  function start() { stop(); timer = setInterval(() => { if (i >= steps.length - 1) { stop(); return; } show(i + 1); }, 6000); }
+  el('prev').onclick = () => { stop(); show(i - 1); };
+  el('next').onclick = () => { stop(); if (i >= steps.length - 1) show(0); else show(i + 1); };
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight') { stop(); show(i + 1); }
+    if (e.key === 'ArrowLeft') { stop(); show(i - 1); }
+  });
+  show(0);
+  start();
+</script>
+</body></html>`;
+}
+
+async function generate(topic, config, imagePath) {
+  const q = String(topic || '').trim();
+  if (!q && !imagePath) throw new Error('请提供知识点、题目或图片');
+  const spec = await solve(q || '请先识别图片中的题目并解答', config, imagePath);
+  const verified = await verify(spec, config);
+  return renderHtml(verified.spec, verified.issues);
+}
+
+module.exports = { generate, solve, verify, renderHtml };

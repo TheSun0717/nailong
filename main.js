@@ -16,6 +16,8 @@ const store = require('./features/store');
 const providers = require('./features/providers');
 const workshop = require('./features/workshop');
 const xhs = require('./features/xhs');
+const websearch = require('./features/websearch');
+const artifacts = require('./features/artifacts');
 
 // 开发环境用独立 profile：避免和已安装版本抢单实例锁，也避免污染正式配置
 if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'nailong-dev'));
@@ -42,7 +44,7 @@ for (const legacy of ['xhs-search', 'bili-search']) {
 
 function cleanPluginQuery(q) {
   const s = String(q || '')
-    .replace(/小红书|b站|bilibili|帮我|帮忙|搜一下|搜索|搜|找一下|查找|找|看看|查一下|查|一下|的|资料|笔记|视频|公开课/gi, ' ')
+    .replace(/小红书|b站|bilibili|知乎|豆瓣|贴吧|微博|牛客|csdn|掘金|帮我|帮忙|搜一下|搜索|搜|找一下|查找|找|看看|查一下|查|一下|的|资料|笔记|视频|公开课/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   return s || String(q || '');
@@ -75,6 +77,7 @@ async function webSearch(platform, q) {
     const rows = await xhs.search(q);
     return rows.map((r) => ({ title: r.title, subtitle: `${r.author} · 赞 ${r.likes}`, url: r.url }));
   }
+  if (websearch.isSite(p)) return websearch.search(p, q);
   throw new Error('不支持的平台：' + platform);
 }
 
@@ -342,7 +345,7 @@ function registerIpc() {
 
   ipcMain.handle('ai-ask', (_e, q) => ai.answer(q, config));
 
-  ipcMain.on('ai-ask-stream', async (event, { id, q }) => {
+  ipcMain.on('ai-ask-stream', async (event, { id, q, history }) => {
     const send = (p) => { if (!event.sender.isDestroyed()) event.sender.send('ai-stream', { id, ...p }); };
     const fixed = ai.matchFixed(q);
     if (fixed) { send({ delta: fixed }); send({ done: true }); return; }
@@ -361,16 +364,28 @@ function registerIpc() {
         systemPrompt = ctx.system;
         send({ meta: { mode: 'study', refs: ctx.refs.map((r) => ({ source: r.source, school: r.school })) } });
       }
-      await ai.streamDeepSeek(String(q || '').trim(), config, (delta) => send({ delta }), systemPrompt);
+      const question = String(q || '').trim();
+      const msgs = (Array.isArray(history) ? history : []).slice(-12)
+        .filter((m) => m && m.text)
+        .map((m) => ({ role: m.who === 'me' ? 'user' : 'assistant', content: String(m.text) }));
+      if (!msgs.length || msgs[msgs.length - 1].content !== question) {
+        msgs.push({ role: 'user', content: question });
+      }
+      await ai.streamChat(msgs, config, (delta) => send({ delta }), systemPrompt);
       send({ done: true });
     } catch (e) {
       send({ error: e.message || String(e) });
     }
   });
 
-  ipcMain.handle('explain-generate', async (_e, text) => {
+  ipcMain.handle('explain-generate', async (_e, payload) => {
     try {
-      const html = await teach.generate(text, config);
+      const text = typeof payload === 'string' ? payload : String((payload && payload.text) || '');
+      let image = null;
+      if (payload && payload.imagePath) {
+        try { image = safePath(String(payload.imagePath)); } catch (_) {}
+      }
+      const html = await teach.generate(text, config, image);
       fs.mkdirSync(explainDir, { recursive: true });
       const file = path.join(explainDir, `explain-${Date.now()}.html`);
       fs.writeFileSync(file, html, 'utf8');
@@ -383,6 +398,11 @@ function registerIpc() {
   const updateDir = path.join(app.getPath('temp'), 'nailong-update');
 
   ipcMain.handle('app-version', () => app.getVersion());
+  ipcMain.handle('win-minimize', (event) => {
+    const w = BrowserWindow.fromWebContents(event.sender);
+    if (w) w.minimize();
+    return true;
+  });
   ipcMain.handle('win-toggle-max', (event) => {
     const w = BrowserWindow.fromWebContents(event.sender);
     if (!w) return false;
@@ -431,6 +451,20 @@ function registerIpc() {
     return { ok: true };
   });
 
+  ipcMain.handle('artifacts-list', () => artifacts.list(explainDir, videoDir));
+  ipcMain.handle('artifact-open', (_e, file) => {
+    const p = path.resolve(String(file || ''));
+    const inExplain = p.startsWith(path.resolve(explainDir) + path.sep);
+    const inVideo = p.startsWith(path.resolve(videoDir) + path.sep);
+    if (!inExplain && !inVideo) return { ok: false, error: '非法路径' };
+    try {
+      if (p.toLowerCase().endsWith('.html')) { openExplainer(p); return { ok: true }; }
+      shell.openPath(p);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
   ipcMain.handle('explain-open', (_e, file) => {
     try { return openExplainer(file); } catch (e) { return false; }
   });
@@ -836,7 +870,7 @@ async function captureUi() {
     await chatWin.webContents.executeJavaScript("document.querySelector('#panel-modal').classList.remove('open'); document.querySelector('#rail-store').click(); document.querySelector('.ptab[data-tab=store]').click()");
     await wait(1800);
     await shot(chatWin, 'chat-store.png');
-    await chatWin.webContents.executeJavaScript("document.querySelector('#plugins-modal').classList.remove('open'); openWorkshop()");
+    await chatWin.webContents.executeJavaScript("closePlugins(); openWorkshop()");
     await wait(500);
     await shot(chatWin, 'chat-workshop.png');
     await chatWin.webContents.executeJavaScript("document.querySelector('#workshop-cancel').click(); runPluginCommand('bili','线性代数')");
@@ -870,6 +904,9 @@ async function captureUi() {
     await chatWin.webContents.executeJavaScript("document.querySelector('#left-tab-history').click()");
     await wait(400);
     await shot(chatWin, 'chat-history.png');
+    await chatWin.webContents.executeJavaScript("document.querySelector('#left-tab-artifacts').click()");
+    await wait(500);
+    await shot(chatWin, 'chat-artifacts.png');
   } catch (e) {
     console.error('[capture] failed:', e);
   } finally {
@@ -914,6 +951,44 @@ app.whenReady().then(() => {
   createPet();
   createTray();
   initPluginHost();
+  if (process.argv.includes('--webdebug')) {
+    (async () => {
+      try {
+        const w = websearch.open();
+        const url = 'https://cn.bing.com/search?setlang=zh-CN&q=' + encodeURIComponent('site:zhihu.com 北邮 人工智能');
+        await w.loadURL(url);
+        await new Promise((r) => setTimeout(r, 6000));
+        const info = await w.webContents.executeJavaScript(`(() => ({
+          url: location.href,
+          li: document.querySelectorAll('li').length,
+          algo: document.querySelectorAll('li.b_algo').length,
+          b: document.querySelectorAll('.b_algo').length,
+          text: (document.body ? document.body.innerText : '').slice(0, 120),
+          rows: [...document.querySelectorAll('li.b_algo')].slice(0, 2).map((li) => {
+            const a = li.querySelector('h2 a') || li.querySelector('a');
+            const p = li.querySelector('p, .b_caption p');
+            return { title: a ? a.innerText.trim() : '', url: a ? a.href : '', snip: p ? p.innerText.trim().slice(0, 40) : '' };
+          }),
+        }))()`);
+        console.log('[webdebug]', JSON.stringify(info));
+        app.exit(0);
+      } catch (e) { console.error('[webdebug] ERR', e.message); app.exit(1); }
+    })();
+    return;
+  }
+  if (process.argv.includes('--webtest')) {
+    (async () => {
+      try {
+        const rows = await websearch.search('zhihu', '北邮 人工智能 数学 怎么学');
+        console.log('[webtest] rows=', rows.length, JSON.stringify(rows.slice(0, 2)));
+        app.exit(rows.length ? 0 : 1);
+      } catch (e) {
+        console.error('[webtest] ERR', e.message);
+        app.exit(2);
+      }
+    })();
+    return;
+  }
   if (process.argv.includes('--autotest')) {
     (async () => {
       try {

@@ -74,14 +74,7 @@ async function askDeepSeek(question, config, systemPrompt, temperature) {
   return data.choices?.[0]?.message?.content || '吼吼，我脑子卡住啦';
 }
 
-// 流式：逐段回调正文，reasoning_content 不展示
-async function streamDeepSeek(question, config, onDelta, systemPrompt) {
-  const res = await request(question, config, true, systemPrompt);
-  if (!res.body || !res.body.getReader) {
-    const text = await askDeepSeek(question, config, systemPrompt);
-    onDelta(text);
-    return text;
-  }
+async function consumeSse(res, onDelta) {
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -107,6 +100,74 @@ async function streamDeepSeek(question, config, onDelta, systemPrompt) {
   return full;
 }
 
+// 流式：逐段回调正文，reasoning_content 不展示
+async function streamDeepSeek(question, config, onDelta, systemPrompt) {
+  const res = await request(question, config, true, systemPrompt);
+  if (!res.body || !res.body.getReader) {
+    const text = await askDeepSeek(question, config, systemPrompt);
+    onDelta(text);
+    return text;
+  }
+  return consumeSse(res, onDelta);
+}
+
+// 多轮对话流式：messages = [{role, content}, ...]
+async function streamChat(messages, config, onDelta, systemPrompt, temperature) {
+  const msgs = systemPrompt
+    ? [{ role: 'system', content: systemPrompt }, ...messages]
+    : messages;
+  const res = await fetch(endpoint(config), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${config.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: config.model || 'deepseek-chat',
+      messages: msgs,
+      temperature: typeof temperature === 'number' ? temperature : 1.0,
+      stream: true,
+    }),
+  });
+  if (!res.ok) throw new Error(`DeepSeek ${res.status}`);
+  if (!res.body || !res.body.getReader) {
+    const data = await res.json().catch(() => ({}));
+    const text = data.choices?.[0]?.message?.content || '';
+    onDelta(text);
+    return text;
+  }
+  return consumeSse(res, onDelta);
+}
+
+// 多模态：把图片作为 data URL 发给模型（模型不支持时抛错，调用方回退）
+async function askWithImage(prompt, config, systemPrompt, imageDataUrl, temperature) {
+  const res = await fetch(endpoint(config), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${config.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: config.model || 'deepseek-chat',
+      messages: [
+        { role: 'system', content: systemPrompt || SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: imageDataUrl } },
+          ],
+        },
+      ],
+      temperature: typeof temperature === 'number' ? temperature : 0.4,
+      stream: false,
+    }),
+  });
+  if (!res.ok) throw new Error(`Vision ${res.status}`);
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
 async function answer(question, config) {
   const q = String(question || '').trim();
   const fixed = matchFixed(q);
@@ -121,4 +182,4 @@ async function answer(question, config) {
   }
 }
 
-module.exports = { answer, matchFixed, streamDeepSeek, askDeepSeek, SYSTEM_PROMPT };
+module.exports = { answer, matchFixed, streamDeepSeek, streamChat, askDeepSeek, askWithImage, SYSTEM_PROMPT };
