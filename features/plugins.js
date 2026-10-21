@@ -70,6 +70,17 @@ function validateManifest(m) {
   return errors;
 }
 
+function copyDir(src, dst) {
+  fs.mkdirSync(dst, { recursive: true });
+  for (const name of fs.readdirSync(src)) {
+    const s = path.join(src, name);
+    const d = path.join(dst, name);
+    const st = fs.statSync(s);
+    if (st.isDirectory()) copyDir(s, d);
+    else fs.writeFileSync(d, fs.readFileSync(s));
+  }
+}
+
 function readManifest(dir) {
   const p = path.join(dir, 'manifest.json');
   const m = JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -115,7 +126,7 @@ function installFromDir(srcDir, { enable = true } = {}) {
 
   fs.rmSync(tmp, { recursive: true, force: true });
   fs.mkdirSync(tmp, { recursive: true });
-  fs.cpSync(srcDir, tmp, { recursive: true });
+  copyDir(srcDir, tmp);
 
   if (fs.existsSync(backup)) fs.rmSync(backup, { recursive: true, force: true });
   if (fs.existsSync(target)) fs.renameSync(target, backup);

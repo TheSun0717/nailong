@@ -1,21 +1,19 @@
 {
   "app": {
-    "version": "1.2.0",
+    "version": "1.2.1",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.2.0/nailong-Setup-1.2.0.exe",
-    "sha256": "a91c69adf2e5a157f60e5316205cad23af89e7995c1c15849fd7df636741f00a",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.2.1/nailong-Setup-1.2.1.exe",
+    "sha256": "83e00eff65b3d1a7cb2a5731d6799b3593de8abbd2f0a37a3435a71d1eb0c7dd",
     "notes": {
-      "summary": "插件系统第一版。",
+      "summary": "修复打包版插件安装。",
       "items": [
-        "插件宿主：manifest 校验、能力总线、命令注册、模板面板",
-        "顶栏新增插件入口；输入框支持 /命令",
-        "示例插件 hello-plugin：/hello 演示说话与面板",
-        "插件随包分发，可启停/卸载",
-        "在线更新沿用 1.1.1（清单走 Contents API、SHA-256 校验）"
+        "修复 asar 内不能用 fs.cpSync 复制，内置插件改为逐文件读取复制",
+        "内置示例插件现在会正确安装到用户目录",
+        "插件宿主/命令/面板同 1.2.0"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.2.0/nailong-Setup-1.2.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.2.1/nailong-Setup-1.2.1.exe"
     ]
   },
   "plugins": [],
