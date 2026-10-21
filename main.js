@@ -270,11 +270,12 @@ function registerIpc() {
     try { return await updater.check(app.getVersion()); }
     catch (e) { return { ok: false, error: e.message }; }
   });
-  ipcMain.handle('update-download', async (event, { url, sha256 } = {}) => {
+  ipcMain.handle('update-download', async (event, { url, mirrors, sha256 } = {}) => {
     try {
       const name = path.basename(new URL(String(url)).pathname) || 'nailong-update.exe';
       const dest = path.join(updateDir, name);
-      const res = await updater.download(String(url), dest, sha256, (received, total) => {
+      const list = [String(url)].concat(Array.isArray(mirrors) ? mirrors : []);
+      const res = await updater.download(list, dest, sha256, (received, total) => {
         if (!event.sender.isDestroyed()) event.sender.send('update-progress', { received, total });
       });
       return { ok: true, ...res };
@@ -618,6 +619,23 @@ app.whenReady().then(() => {
   registerIpc();
   createPet();
   createTray();
+  if (process.argv.includes('--updatetest')) {
+    (async () => {
+      try {
+        const r = await updater.check('1.0.0');
+        console.log('[updatetest] latest=', r.latest, 'url=', r.app.url);
+        const dest = path.join(app.getPath('temp'), 'nailong-update-test.exe');
+        const res = await updater.download([r.app.url].concat(r.app.mirrors || []), dest, r.app.sha256,
+          (recv, total) => { if (total) console.log('[updatetest]', Math.round(recv / total * 100) + '%'); });
+        console.log('[updatetest] OK sha=' + res.sha + ' size=' + res.size);
+        app.exit(0);
+      } catch (e) {
+        console.error('[updatetest] ERR', e.message);
+        app.exit(1);
+      }
+    })();
+    return;
+  }
   if (process.argv.includes('--capture')) { captureUi(); return; }
   if (process.argv.includes('--selftest')) { selfTest(); return; }
   if (process.argv.includes('--muxonly')) {

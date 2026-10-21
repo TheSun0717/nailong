@@ -243,7 +243,7 @@ data/video|explain/      产物
 - [x] 项目级 CLAUDE.md
 - [ ] 插件宿主 + manifest + 能力总线
 - [ ] 商店 + 安装/更新/回滚
-- [ ] 主程序更新（electron-updater 或自研）+ GitHub Releases
+- [x] 主程序在线更新（自研：检查/日志/下载校验/静默安装；net.fetch 走系统代理 + ghproxy 镜像）
 - [ ] 学习助手 / 讲解工坊 插件化
 - [x] 桌宠设置（0.5–2.0 缩放、独立画布 360–640、气泡开关）
 - [ ] 多标签、反馈、供应商文档、API Key 助手

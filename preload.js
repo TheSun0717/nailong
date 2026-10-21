@@ -47,7 +47,7 @@ contextBridge.exposeInMainWorld('nailong', {
   // 更新
   getAppVersion: () => ipcRenderer.invoke('app-version'),
   checkUpdate: () => ipcRenderer.invoke('update-check'),
-  downloadUpdate: (url, sha256) => ipcRenderer.invoke('update-download', { url, sha256 }),
+  downloadUpdate: (url, mirrors, sha256) => ipcRenderer.invoke('update-download', { url, mirrors, sha256 }),
   onUpdateProgress: (cb) => ipcRenderer.on('update-progress', (_e, p) => cb(p)),
   installUpdate: (file) => ipcRenderer.invoke('update-install', file),
   petHover: (hovering) => ipcRenderer.send('pet-hover', hovering),

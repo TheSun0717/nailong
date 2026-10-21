@@ -1161,7 +1161,7 @@
         ? `${pct}% · ${(p.received / 1048576).toFixed(1)} / ${(p.total / 1048576).toFixed(1)} MB`
         : `${(p.received / 1048576).toFixed(1)} MB`;
     };
-    const res = await window.nailong.downloadUpdate(pendingUpdate.url, pendingUpdate.sha256);
+    const res = await window.nailong.downloadUpdate(pendingUpdate.url, pendingUpdate.mirrors, pendingUpdate.sha256);
     window.__updateProgress = null;
     if (!res || !res.ok) {
       msg.textContent = '下载失败：' + ((res && res.error) || '未知错误');

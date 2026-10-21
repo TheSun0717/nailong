@@ -4,6 +4,14 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// 主进程里优先用 Electron 的 net.fetch（走系统代理）；纯 Node 测试时回退到全局 fetch
+let netFetch = null;
+try {
+  const { net } = require('electron');
+  if (net && typeof net.fetch === 'function') netFetch = net.fetch.bind(net);
+} catch {}
+const doFetch = (url, opts) => (netFetch ? netFetch(url, opts) : fetch(url, opts));
+
 const SOURCES = [
   'https://raw.githubusercontent.com/TheSun0717/nailong/main/updates.json',
   'https://cdn.jsdelivr.net/gh/TheSun0717/nailong@main/updates.json',
@@ -29,7 +37,7 @@ async function fetchJson(urls, timeout = 8000) {
   let lastErr = null;
   for (const url of urls) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(timeout), cache: 'no-store' });
+      const res = await doFetch(url, { signal: AbortSignal.timeout(timeout), cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (e) {
@@ -53,9 +61,9 @@ async function check(currentVersion) {
   };
 }
 
-async function download(url, dest, expectedSha, onProgress = () => {}) {
+async function downloadOne(url, dest, expectedSha, onProgress = () => {}) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  const res = await fetch(url, { signal: AbortSignal.timeout(30 * 60 * 1000) });
+  const res = await doFetch(url, { signal: AbortSignal.timeout(30 * 60 * 1000) });
   if (!res.ok) throw new Error(`下载失败（HTTP ${res.status}）`);
 
   const total = Number(res.headers.get('content-length')) || 0;
@@ -84,6 +92,17 @@ async function download(url, dest, expectedSha, onProgress = () => {}) {
   }
   onProgress(received, total || received);
   return { file: dest, sha, size: received };
+}
+
+async function download(urls, dest, expectedSha, onProgress = () => {}) {
+  const list = Array.isArray(urls) ? urls : [urls];
+  let lastErr = null;
+  for (const url of list) {
+    if (!url) continue;
+    try { return await downloadOne(url, dest, expectedSha, onProgress); }
+    catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('没有可用的下载地址');
 }
 
 module.exports = { check, download, compareVersions, SOURCES };
