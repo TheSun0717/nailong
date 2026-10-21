@@ -1,22 +1,20 @@
 {
   "app": {
-    "version": "1.4.0",
+    "version": "1.5.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.4.0/nailong-Setup-1.4.0.exe",
-    "sha256": "43d63c4697743d3dc00310cc8eed0dfc54d12027c2bad62f006924885bbab242",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.5.0/nailong-Setup-1.5.0.exe",
+    "sha256": "e40e89ffbb0d5300cc52ca5d2ec85157a7519ec1f75e49b2f1b23bd83fd75e01",
     "notes": {
-      "summary": "大模型接入与反馈。",
+      "summary": "多标签任务与 Key 加密。",
       "items": [
-        "服务商配置文档（10 家），应用内直接查看",
-        "API 配置助手：问「XX 的 API 怎么配置」直接给步骤",
-        "可配置 API Base + 测试连接（OpenAI 兼容供应商可直接接）",
-        "问题反馈：FormSubmit 直投 2491695554@qq.com，失败回退邮件客户端",
-        "作者微信 FromTheSun0717",
-        "发版校验供应商路径（catalog-status.json）"
+        "聊天窗顶部任务标签：每个标签独立会话，切换不中断后台任务",
+        "标签可新建/关闭/持久化；旧的单会话自动迁移",
+        "API Key 改为 Windows DPAPI（safeStorage）加密存储，旧明文自动迁移",
+        "手机端标签存 localStorage"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.4.0/nailong-Setup-1.4.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.5.0/nailong-Setup-1.5.0.exe"
     ]
   },
   "plugins": [
