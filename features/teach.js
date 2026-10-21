@@ -136,12 +136,12 @@ function augmentChecks(spec) {
   return { ...spec, checks: checks.slice(0, 8) };
 }
 
-function runChecks(checks, script) {
+function runChecks(checks, script, pythonExe) {
   return new Promise((resolve) => {
     if (!Array.isArray(checks) || !checks.length || !script || !fs.existsSync(script)) {
       return resolve({ allOk: true, note: '', failed: [] });
     }
-    execFile('python', [script, JSON.stringify({ checks })], { encoding: 'utf8', timeout: 30000 }, (err, stdout) => {
+    execFile(pythonExe || 'python', [script, JSON.stringify({ checks })], { encoding: 'utf8', timeout: 30000 }, (err, stdout) => {
       if (err) return resolve({ allOk: true, note: '', failed: [] });
       try {
         const r = JSON.parse(String(stdout).trim());
@@ -434,12 +434,12 @@ async function generate(topic, config, imagePath, opts = {}) {
       }
     } catch (_) {}
   }
-  const check = await runChecks(spec.checks, opts.sympyScript);
+  const check = await runChecks(spec.checks, opts.sympyScript, opts.python);
   let extra = [];
   if (!check.allOk) {
     extra = ['符号验算未通过：' + check.failed.join('；')];
     spec = await correct(spec, check.failed, config);
-    const recheck = await runChecks(spec.checks, opts.sympyScript);
+    const recheck = await runChecks(spec.checks, opts.sympyScript, opts.python);
     if (recheck.allOk) extra = [];
     else if (recheck.failed.length) extra = ['符号验算仍有未通过项：' + recheck.failed.join('；')];
   }

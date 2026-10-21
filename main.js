@@ -19,8 +19,15 @@ const xhs = require('./features/xhs');
 const websearch = require('./features/websearch');
 const artifacts = require('./features/artifacts');
 
-// 开发环境用独立 profile：避免和已安装版本抢单实例锁，也避免污染正式配置
-if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'nailong-dev'));
+// 数据目录：开发版放项目内 .userdata（D 盘）；安装版若存在 D:/nailong-data 则优先使用
+if (!app.isPackaged) {
+  app.setPath('userData', path.join(__dirname, '.userdata'));
+} else {
+  try {
+    const custom = 'D:/nailong-data';
+    if (fs.existsSync(custom)) app.setPath('userData', custom);
+  } catch {}
+}
 
 const userDataDir = app.getPath('userData');
 const configPath = path.join(userDataDir, 'config.json');
@@ -116,6 +123,8 @@ const assetsRoot = app.isPackaged
 const ocrScript = app.isPackaged
   ? path.join(process.resourcesPath, 'tools', 'ocr.py')
   : path.join(__dirname, 'tools', 'ocr.py');
+const VENV_PY = 'D:/nailong-tools/py/Scripts/python.exe';
+const pyExe = process.env.NAILONG_PYTHON || (fs.existsSync(VENV_PY) ? VENV_PY : 'python');
 const sympyScript = app.isPackaged
   ? path.join(process.resourcesPath, 'tools', 'sympy_check.py')
   : path.join(__dirname, 'tools', 'sympy_check.py');
@@ -388,7 +397,7 @@ function registerIpc() {
       if (payload && payload.imagePath) {
         try { image = safePath(String(payload.imagePath)); } catch (_) {}
       }
-      const html = await teach.generate(text, config, image, { sympyScript });
+      const html = await teach.generate(text, config, image, { sympyScript, python: pyExe });
       fs.mkdirSync(explainDir, { recursive: true });
       const file = path.join(explainDir, `explain-${Date.now()}.html`);
       fs.writeFileSync(file, html, 'utf8');
@@ -603,8 +612,7 @@ function registerIpc() {
   ipcMain.handle('ocr-file', (_e, name) => new Promise((resolve) => {
     let file;
     try { file = safePath(name); } catch (e) { resolve({ error: e.message }); return; }
-    const py = process.env.NAILONG_PYTHON || 'python';
-    execFile(py, [ocrScript, file], { encoding: 'utf8', timeout: 180000 },
+    execFile(pyExe, [ocrScript, file], { encoding: 'utf8', timeout: 180000 },
       (err, stdout) => {
         if (err) { resolve({ error: err.message }); return; }
         try {
