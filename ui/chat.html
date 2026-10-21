@@ -412,6 +412,10 @@
   .doc-body table { border-collapse: collapse; width: 100%; font-size: 11.5px; }
   .doc-body th, .doc-body td { border: 1px solid var(--line); padding: 4px 6px; }
   .doc-body a { color: #A96F00; text-decoration: underline; }
+  .workshop-card { width: 480px; max-width: calc(100vw - 32px); }
+  .workshop-preview { font-size: 12px; line-height: 1.65; max-height: 280px; overflow-y: auto; margin-top: 6px; }
+  .workshop-preview h4 { font-size: 12.5px; margin: 10px 0 3px; }
+  .workshop-preview .wp-item { border-left: 3px solid var(--yellow); padding-left: 8px; margin: 5px 0; }
   .plugin-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
   .plugin-tabs .ptab {
     flex: 1; border: 1.5px solid var(--line); background: var(--paper); border-radius: 10px;
@@ -656,6 +660,22 @@
         <button id="feedback-send">发送</button>
       </div>
       <div class="tip">作者微信：<b>FromTheSun0717</b><br>首次提交会收到一封确认邮件，点一下确认后才会继续转发。</div>
+    </div>
+  </div>
+
+  <div id="workshop-modal" class="modal">
+    <div class="card workshop-card">
+      <h3>🛠 能力工坊</h3>
+      <div class="tip" style="margin-top:0">用一句话描述你想要的功能，奶龙会生成一个声明式插件；安装前可以先看它做什么。</div>
+      <label>插件描述</label>
+      <textarea id="workshop-desc" rows="4" placeholder="例如：做一个能搜 B 站公开课的插件，命令叫 query"></textarea>
+      <div class="btns"><button id="workshop-generate">生成插件</button></div>
+      <div id="workshop-status" class="tip"></div>
+      <div id="workshop-preview" class="workshop-preview"></div>
+      <div class="btns">
+        <button id="workshop-cancel">关闭</button>
+        <button id="workshop-install" style="display:none">安装插件</button>
+      </div>
     </div>
   </div>
 
@@ -1574,8 +1594,17 @@
     wh.appendChild(wn);
     const ww = document.createElement('div');
     ww.className = 'plugin-what';
-    ww.textContent = '一句话描述你想要的功能，奶龙帮你生成插件（下一版开放）。';
-    workshop.append(wh, ww);
+    ww.textContent = '一句话描述你想要的功能，奶龙帮你生成插件。';
+    const wa = document.createElement('div');
+    wa.className = 'plugin-actions';
+    const wb = document.createElement('button');
+    wb.className = 'plugin-cmd';
+    wb.textContent = '打开';
+    wb.onclick = (e) => { e.stopPropagation(); openWorkshop(); };
+    wa.appendChild(wb);
+    workshop.append(wh, ww, wa);
+    workshop.style.cursor = 'pointer';
+    workshop.onclick = openWorkshop;
     box.appendChild(workshop);
 
     let installed = [];
@@ -1703,6 +1732,87 @@
   if (window.nailong.onPluginNotify) {
     window.nailong.onPluginNotify((t) => toast(String(t || '')));
   }
+
+  /* ---------- 能力工坊 ---------- */
+  let workshopSpec = null;
+
+  function openWorkshop() {
+    workshopSpec = null;
+    $('#workshop-preview').innerHTML = '';
+    $('#workshop-status').textContent = '';
+    $('#workshop-install').style.display = 'none';
+    $('#workshop-modal').classList.add('open');
+  }
+
+  function renderWorkshopPreview(spec, mock) {
+    const box = $('#workshop-preview');
+    box.innerHTML = '';
+    const h = (t) => { const e = document.createElement('h4'); e.textContent = t; box.appendChild(e); };
+    const p = (t) => { const e = document.createElement('div'); e.textContent = t; box.appendChild(e); };
+    h(spec.name + ' · ' + spec.id);
+    p(spec.description || '');
+    h('它是干什么的'); p(spec.intro.what);
+    h('点哪里'); p(spec.intro.how);
+    h('会发生什么'); p(spec.intro.whatHappens);
+    h('失败了怎么办'); p(spec.intro.ifFails);
+    h('命令');
+    (spec.commands || []).forEach((c) => {
+      const d = document.createElement('div');
+      d.className = 'wp-item';
+      const b = document.createElement('b');
+      b.textContent = '/' + c.name;
+      const sp = document.createElement('span');
+      sp.textContent = ' · ' + (c.description || '');
+      d.append(b, sp);
+      box.appendChild(d);
+    });
+    h('权限');
+    p((spec.permissions || []).join('、'));
+    if (mock) {
+      h('试运行');
+      mock.forEach((m) => p(`/${m.command} → ${m.ok ? ((m.result && m.result.text) || '通过') : '失败：' + m.error}`));
+    }
+  }
+
+  $('#workshop-cancel').onclick = () => $('#workshop-modal').classList.remove('open');
+  $('#workshop-generate').onclick = async () => {
+    const desc = $('#workshop-desc').value.trim();
+    if (desc.length < 4) { toast('多写几个字描述你想要的插件'); return; }
+    const btn = $('#workshop-generate');
+    btn.disabled = true;
+    btn.textContent = '生成中…（30-60 秒）';
+    $('#workshop-status').textContent = '奶龙正在设计插件…';
+    $('#workshop-install').style.display = 'none';
+    const r = await window.nailong.workshopGenerate(desc);
+    btn.disabled = false;
+    btn.textContent = '生成插件';
+    if (!r || !r.ok) {
+      $('#workshop-status').textContent = '生成失败：' + ((r && r.errors) || ['未知错误']).join('；');
+      return;
+    }
+    workshopSpec = r.spec;
+    renderWorkshopPreview(r.spec, r.mock);
+    $('#workshop-status').textContent = '校验通过，可以先看下面的预览再安装。';
+    $('#workshop-install').style.display = 'block';
+  };
+
+  $('#workshop-install').onclick = async () => {
+    if (!workshopSpec) return;
+    const btn = $('#workshop-install');
+    btn.disabled = true;
+    btn.textContent = '安装中…';
+    const r = await window.nailong.workshopInstall(workshopSpec);
+    btn.disabled = false;
+    btn.textContent = '安装插件';
+    if (!r || !r.ok) {
+      $('#workshop-status').textContent = '安装失败：' + ((r && r.error) || '未知错误');
+      return;
+    }
+    toast('插件已安装：' + workshopSpec.name);
+    $('#workshop-modal').classList.remove('open');
+    pluginTab = 'installed';
+    renderPlugins();
+  };
 
   /* ---------- 服务商配置 / 反馈 ---------- */
   async function openProviderDoc() {

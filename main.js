@@ -14,6 +14,7 @@ const plugins = require('./features/plugins');
 const pluginHost = require('./features/plugin-host');
 const store = require('./features/store');
 const providers = require('./features/providers');
+const workshop = require('./features/workshop');
 
 // 开发环境用独立 profile：避免和已安装版本抢单实例锁，也避免污染正式配置
 if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'nailong-dev'));
@@ -594,6 +595,23 @@ function registerIpc() {
     }
   });
 
+  ipcMain.handle('workshop-generate', async (_e, description) => {
+    try { return await workshop.generate(description, config, app.getVersion()); }
+    catch (e) { return { ok: false, errors: [e.message] }; }
+  });
+  ipcMain.handle('workshop-install', (_e, spec) => {
+    try {
+      const m = workshop.install(spec, {
+        appVersion: app.getVersion(),
+        tmpRoot: path.join(app.getPath('temp'), 'nailong-workshop'),
+      });
+      initPluginHost();
+      return { ok: true, plugin: m };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+
   ipcMain.handle('store-list', async () => {
     try { return { ok: true, items: await store.list(app.getVersion()) }; }
     catch (e) { return { ok: false, error: e.message }; }
@@ -740,7 +758,10 @@ async function captureUi() {
     await chatWin.webContents.executeJavaScript("document.querySelector('#panel-modal').classList.remove('open'); document.querySelector('#plugins-btn').click(); document.querySelector('.ptab[data-tab=store]').click()");
     await wait(1800);
     await shot(chatWin, 'chat-store.png');
-    await chatWin.webContents.executeJavaScript("document.querySelector('#plugins-modal').classList.remove('open'); runPluginCommand('bili','线性代数')");
+    await chatWin.webContents.executeJavaScript("document.querySelector('#plugins-modal').classList.remove('open'); openWorkshop()");
+    await wait(500);
+    await shot(chatWin, 'chat-workshop.png');
+    await chatWin.webContents.executeJavaScript("document.querySelector('#workshop-cancel').click(); runPluginCommand('bili','线性代数')");
     await wait(1800);
     await shot(chatWin, 'chat-bili.png');
     await chatWin.webContents.executeJavaScript("document.querySelector('#panel-modal').classList.remove('open')");
@@ -812,6 +833,24 @@ app.whenReady().then(() => {
   createPet();
   createTray();
   initPluginHost();
+  if (process.argv.includes('--workshoptest')) {
+    (async () => {
+      try {
+        const r = await workshop.generate('做一个能搜 B 站公开课的插件，命令叫 query', config, app.getVersion());
+        if (!r.ok) { console.error('[workshoptest] generate failed', r.errors); app.exit(1); return; }
+        console.log('[workshoptest] spec=', r.spec.id, r.spec.commands.map((c) => c.name).join(','));
+        workshop.install(r.spec, { appVersion: app.getVersion(), tmpRoot: path.join(app.getPath('temp'), 'nailong-workshop') });
+        initPluginHost();
+        const run = await pluginHost.runCommand(r.spec.commands[0].name, '线性代数');
+        console.log('[workshoptest] run ok=', run.ok, JSON.stringify(run).slice(0, 300));
+        app.exit(run.ok ? 0 : 1);
+      } catch (e) {
+        console.error('[workshoptest] ERR', e.message);
+        app.exit(2);
+      }
+    })();
+    return;
+  }
   if (process.argv.includes('--storetest')) {
     (async () => {
       try {
