@@ -30,7 +30,7 @@ const SOLVE_SYSTEM = `你是严谨的学科老师。解出题目并输出一张�
 - 每一步都必须可验证；先写已知，再推导，最后给答案。
 - 如果题目带图，先根据图写出已知条件，再做。
 - visual 用来画示意图：
-  - triangle: {"a":"3","b":"4","c":"5","aLabel":"3","bLabel":"4","cLabel":"5"}
+  - triangle: {"a":"3","b":"4","c":"5","aLabel":"3","bLabel":"4","cLabel":"5"}（只用于直角三角形）
   - axes: {"points":[{"x":0,"y":0,"label":"O"}],"curve":{"type":"line|parabola","a":1,"b":0,"c":0}}
   - flow: {"nodes":["步骤A","步骤B","步骤C"]}
   - circle: {"r":"5","angle":"60","label":"r=5"}
@@ -102,14 +102,38 @@ async function solve(topic, config, imagePath) {
     try {
       raw = await ai.askWithImage(prompt, config, SOLVE_SYSTEM, imageData(imagePath), 0.2);
     } catch (_) {
-      raw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, 0.2);
+      raw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, 0.2, { json: true });
     }
   } else {
-    raw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, 0.2);
+    raw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, 0.2, { json: true });
   }
   const spec = extractJson(raw);
   if (!isSpec(spec)) throw new Error('模型没有返回解题卡');
   return normalizeSpec(spec);
+}
+
+// 三角形图示自动追加勾股校验（只对数字标签生效）
+function augmentChecks(spec) {
+  const checks = Array.isArray(spec.checks) ? spec.checks.slice() : [];
+  const seen = new Set(checks.map((c) => `${c.expr}=${c.equals}`));
+  const num = (v) => {
+    const m = String(v == null ? '' : v).replace(/[^0-9.]/g, '');
+    const n = Number(m);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  for (const st of spec.steps || []) {
+    const v = st.visual;
+    if (!v || v.type !== 'triangle' || !v.data) continue;
+    const a = num(v.data.aLabel || v.data.a);
+    const b = num(v.data.bLabel || v.data.b);
+    const c = num(v.data.cLabel || v.data.c);
+    if (!a || !b || !c) continue;
+    const key = `${a}^2+${b}^2=${c}^2`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    checks.push({ expr: `${a}^2+${b}^2`, equals: `${c}^2`, vars: {} });
+  }
+  return { ...spec, checks: checks.slice(0, 8) };
 }
 
 function runChecks(checks, script) {
@@ -139,7 +163,7 @@ async function correct(spec, failures, config) {
   try {
     const raw = await ai.askDeepSeek(
       `下面解题卡的符号验算失败：\n${failures.join('\n')}\n\n请修正错误并输出完整解题卡 JSON（结构同前，保留 checks）。\n${JSON.stringify(spec)}`,
-      config, SOLVE_SYSTEM, 0);
+      config, SOLVE_SYSTEM, 0, { json: true });
     const s = extractJson(raw);
     return isSpec(s) ? normalizeSpec(s) : spec;
   } catch {
@@ -150,7 +174,7 @@ async function correct(spec, failures, config) {
 async function verify(spec, config) {
   try {
     const raw = await ai.askDeepSeek(
-      `${VERIFY_SYSTEM}\n\n解题卡：\n${JSON.stringify(spec)}`, config, VERIFY_SYSTEM, 0);
+      `${VERIFY_SYSTEM}\n\n解题卡：\n${JSON.stringify(spec)}`, config, VERIFY_SYSTEM, 0, { json: true });
     const v = extractJson(raw);
     if (!v) return { spec, issues: [] };
     if (v.corrected && isSpec(v.corrected)) return { spec: normalizeSpec(v.corrected), issues: v.issues || [] };
@@ -375,7 +399,7 @@ function renderHtml(spec, issues = [], checkNote = '') {
 async function generate(topic, config, imagePath, opts = {}) {
   const q = String(topic || '').trim();
   if (!q && !imagePath) throw new Error('请提供知识点、题目或图片');
-  let spec = await solve(q || '请先识别图片中的题目并解答', config, imagePath);
+  let spec = augmentChecks(await solve(q || '请先识别图片中的题目并解答', config, imagePath));
   const check = await runChecks(spec.checks, opts.sympyScript);
   let extra = [];
   if (!check.allOk) {

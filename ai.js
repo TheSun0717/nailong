@@ -55,21 +55,29 @@ function endpoint(config) {
   return base.endsWith('/chat/completions') ? base : base + '/chat/completions';
 }
 
-async function request(question, config, stream, systemPrompt, temperature) {
+async function request(question, config, stream, systemPrompt, temperature, jsonMode) {
+  const body = JSON.parse(buildBody(question, config, stream, systemPrompt, temperature));
+  if (jsonMode) body.response_format = { type: 'json_object' };
   const res = await fetch(endpoint(config), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${config.apiKey}`,
     },
-    body: buildBody(question, config, stream, systemPrompt, temperature),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`DeepSeek ${res.status}`);
   return res;
 }
 
-async function askDeepSeek(question, config, systemPrompt, temperature) {
-  const res = await request(question, config, false, systemPrompt, temperature);
+async function askDeepSeek(question, config, systemPrompt, temperature, opts = {}) {
+  let res;
+  try {
+    res = await request(question, config, false, systemPrompt, temperature, !!opts.json);
+  } catch (e) {
+    if (opts.json) res = await request(question, config, false, systemPrompt, temperature, false);
+    else throw e;
+  }
   const data = await res.json();
   return data.choices?.[0]?.message?.content || '吼吼，我脑子卡住啦';
 }
