@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('nailong', {
   renameFile: (oldName, newName) => ipcRenderer.invoke('file-rename', oldName, newName),
 
   // 宠物窗口交互
+  applyPetSettings: () => ipcRenderer.invoke('pet-apply'),
   petHover: (hovering) => ipcRenderer.send('pet-hover', hovering),
   dragStart: () => ipcRenderer.send('pet-drag-start'),
   dragEnd: () => ipcRenderer.send('pet-drag-end'),

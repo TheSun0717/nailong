@@ -37,6 +37,9 @@ const DEFAULT_CONFIG = {
   hasSeenHint: false,
   userAvatar: false,
   petPosition: null, // 奶龙位置 {x, y}，拖拽后记住
+  petScale: 1, // 桌宠缩放 0.5 - 2.0
+  petCanvas: 480, // 桌宠窗口画布大小（手动可调，不随缩放变化）
+  petBubble: true, // 自动气泡开关
   profile: { level: '', region: '', school: '', major: '', grade: '' },
 };
 
@@ -74,9 +77,10 @@ function assetUrl(rel) {
 // ---------- 窗口 ----------
 function createPet() {
   if (petWin) { petWin.show(); return; }
+  const canvas = Math.min(640, Math.max(360, Number(config.petCanvas) || 480));
   petWin = new BrowserWindow({
-    width: 260,
-    height: 260,
+    width: canvas,
+    height: canvas,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -392,6 +396,14 @@ function registerIpc() {
       });
   }));
 
+  ipcMain.handle('pet-apply', () => {
+    if (!petWin || petWin.isDestroyed()) return false;
+    const canvas = Math.min(640, Math.max(360, Number(config.petCanvas) || 480));
+    petWin.setSize(canvas, canvas);
+    positionPet();
+    petWin.webContents.reload();
+    return true;
+  });
   ipcMain.on('pet-hover', (_e, hovering) => {
     if (!petWin) return;
     if (hovering) petWin.setIgnoreMouseEvents(false);
@@ -483,6 +495,10 @@ async function captureUi() {
       await petWin.webContents.executeJavaScript("document.body.classList.remove('hover'); document.body.classList.add('dragging'); setPose('stand')");
       await wait(500);
       await shot(petWin, 'pet-drag.png');
+      await petWin.webContents.executeJavaScript("document.body.classList.remove('dragging'); document.body.style.setProperty('--pet-scale', 1.8); setPose('stand')");
+      await wait(500);
+      await shot(petWin, 'pet-scale.png');
+      await petWin.webContents.executeJavaScript("document.body.style.setProperty('--pet-scale', 1); setPose('sleep')");
     }
     try { fs.rmSync(convPath, { force: true }); } catch {}
     openChat();
@@ -491,6 +507,11 @@ async function captureUi() {
     chatWin.focus();
     await wait(400);
     await shot(chatWin, 'chat-empty.png');
+    await chatWin.webContents.executeJavaScript("document.querySelector('#settings-btn').click()");
+    await wait(400);
+    await shot(chatWin, 'chat-settings.png');
+    await chatWin.webContents.executeJavaScript("document.querySelector('#cancel-key').click()");
+    await wait(250);
     await chatWin.webContents.executeJavaScript(`(() => {
       document.querySelector('#study-btn').click();
       document.querySelector('#p-level').value = '本科';

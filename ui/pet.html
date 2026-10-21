@@ -12,6 +12,7 @@
     --h: 200px;
     --sw: 150px;
     --so: .22;
+    --pet-scale: 1;
   }
   body[data-pose="wink"]  { --h: 200px; --sw: 150px; --so: .22; }
   body[data-pose="stand"] { --h: 205px; --sw: 96px;  --so: .20; }
@@ -22,7 +23,7 @@
     position: absolute;
     bottom: 9px;
     left: 50%;
-    width: var(--sw);
+    width: calc(var(--sw) * var(--pet-scale));
     height: 13px;
     transform: translateX(-50%);
     background: radial-gradient(ellipse at center, rgba(58,42,26,var(--so)) 0%, rgba(58,42,26,0) 68%);
@@ -36,7 +37,7 @@
     bottom: 14px;
     left: 0;
     width: 100%;
-    height: var(--h);
+    height: calc(var(--h) * var(--pet-scale));
     display: flex;
     justify-content: center;
     align-items: flex-end;
@@ -92,7 +93,7 @@
   /* 漫画气泡 */
   #bubble {
     position: absolute;
-    top: 6px;
+    bottom: 150px;
     left: 50%;
     transform: translate(-50%, -4px) scale(.92);
     max-width: 238px;
@@ -178,8 +179,14 @@
       lastSY: 0,
     };
     let urls = {};
+    let bubbleEnabled = true;
 
     async function init() {
+      const cfg = await window.nailong.getConfig();
+      const scale = Math.min(2, Math.max(0.5, Number(cfg.petScale) || 1));
+      body.style.setProperty('--pet-scale', scale);
+      bubbleEnabled = cfg.petBubble !== false;
+
       urls = {
         wink: await window.nailong.getAsset('pet/pose-wink.webp'),
         stand: await window.nailong.getAsset('pet/pose-stand.webp'),
@@ -203,8 +210,15 @@
     }
 
     function say(text, ms = 3600) {
+      if (!bubbleEnabled) return;
       clearTimeout(state.bubbleTimer);
       bubble.textContent = text;
+      // 气泡贴着奶龙头顶，并按窗口高度做一次夹取，避免 2.0× 时被裁掉
+      const rect = pet.getBoundingClientRect();
+      const bh = bubble.offsetHeight || 40;
+      const desired = window.innerHeight - rect.top + 6;
+      const maxBottom = window.innerHeight - bh - 6;
+      bubble.style.bottom = Math.max(4, Math.min(desired, maxBottom)) + 'px';
       bubble.classList.add('show');
       state.bubbleTimer = setTimeout(() => bubble.classList.remove('show'), ms);
     }
