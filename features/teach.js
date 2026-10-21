@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
+const crypto = require('crypto');
 const ai = require('../ai');
 
 const SOLVE_SYSTEM = `你是严谨的学科老师。解出题目并输出一张「解题卡」JSON，只输出 JSON，不要 Markdown 围栏。
@@ -132,6 +133,11 @@ function augmentChecks(spec) {
     if (seen.has(key)) continue;
     seen.add(key);
     checks.push({ expr: `${a}^2+${b}^2`, equals: `${c}^2`, vars: {} });
+    const triKey = `tri:${a},${b},${c}`;
+    if (!seen.has(triKey)) {
+      seen.add(triKey);
+      checks.push({ type: 'triangle', a, b, c });
+    }
   }
   return { ...spec, checks: checks.slice(0, 8) };
 }
@@ -150,7 +156,9 @@ function runChecks(checks, script, pythonExe) {
         return resolve({
           allOk: !!r.ok,
           note: r.ok ? `已通过 ${results.length} 项符号验算` : '',
-          failed: failed.map((x) => `${x.expr} = ${x.equals}（差 ${x.diff || x.error || '不一致'}）`),
+          failed: failed.map((x) => x.type === 'triangle'
+            ? `三角形 ${x.a}/${x.b}/${x.c} 不满足三角形不等式`
+            : `${x.expr} = ${x.equals}（差 ${x.diff || x.error || '不一致'}）`),
         });
       } catch {
         resolve({ allOk: true, note: '', failed: [] });
@@ -416,10 +424,47 @@ B：${JSON.stringify(b)}`,
   }
 }
 
+const CACHE_VERSION = 'v1';
+const CACHE_TTL = 30 * 24 * 3600 * 1000;
+
+function cacheKey(q, config, imagePath) {
+  const h = crypto.createHash('sha256');
+  h.update(CACHE_VERSION + '|' + String(config.model || '') + '|' + String(q).replace(/\s+/g, ' ').trim().toLowerCase());
+  if (imagePath) {
+    try { h.update(fs.readFileSync(imagePath)); } catch (_) {}
+  }
+  return h.digest('hex');
+}
+
+function readCache(dir, key) {
+  try {
+    const file = path.join(dir, key + '.json');
+    if (!fs.existsSync(file)) return null;
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (!data || !data.spec || !data.ts) return null;
+    if (Date.now() - data.ts > CACHE_TTL) { fs.rmSync(file, { force: true }); return null; }
+    return data;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeCache(dir, key, payload) {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, key + '.json'), JSON.stringify({ ...payload, ts: Date.now() }));
+  } catch (_) {}
+}
+
 async function generate(topic, config, imagePath, opts = {}) {
   const q = String(topic || '').trim();
   if (!q && !imagePath) throw new Error('请提供知识点、题目或图片');
   const promptText = q || '请先识别图片中的题目并解答';
+  const key = cacheKey(promptText, config, imagePath);
+  if (opts.cacheDir) {
+    const hit = readCache(opts.cacheDir, key);
+    if (hit) return renderHtml(hit.spec, hit.issues || [], (hit.note || '') + ' · 命中缓存');
+  }
   let spec = augmentChecks(await solve(promptText, config, imagePath));
   let dualNote = '';
   // 双解一致性：只在纯文本题上做，避免图片题第二次看不到图
@@ -445,7 +490,9 @@ async function generate(topic, config, imagePath, opts = {}) {
   }
   const verified = await verify(spec, config);
   const note = [check.note, dualNote].filter(Boolean).join(' · ');
-  return renderHtml(verified.spec, [...(verified.issues || []), ...extra], note);
+  const issues = [...(verified.issues || []), ...extra];
+  if (opts.cacheDir) writeCache(opts.cacheDir, key, { spec: verified.spec, issues, note });
+  return renderHtml(verified.spec, issues, note);
 }
 
 module.exports = { generate, solve, verify, renderHtml };

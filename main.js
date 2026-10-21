@@ -125,6 +125,7 @@ const ocrScript = app.isPackaged
   : path.join(__dirname, 'tools', 'ocr.py');
 const VENV_PY = 'D:/nailong-tools/py/Scripts/python.exe';
 const pyExe = process.env.NAILONG_PYTHON || (fs.existsSync(VENV_PY) ? VENV_PY : 'python');
+const teachCacheDir = path.join(dataDir, 'teach-cache');
 const sympyScript = app.isPackaged
   ? path.join(process.resourcesPath, 'tools', 'sympy_check.py')
   : path.join(__dirname, 'tools', 'sympy_check.py');
@@ -397,7 +398,7 @@ function registerIpc() {
       if (payload && payload.imagePath) {
         try { image = safePath(String(payload.imagePath)); } catch (_) {}
       }
-      const html = await teach.generate(text, config, image, { sympyScript, python: pyExe });
+      const html = await teach.generate(text, config, image, { sympyScript, python: pyExe, cacheDir: teachCacheDir });
       fs.mkdirSync(explainDir, { recursive: true });
       const file = path.join(explainDir, `explain-${Date.now()}.html`);
       fs.writeFileSync(file, html, 'utf8');

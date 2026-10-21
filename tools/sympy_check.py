@@ -29,6 +29,15 @@ def main():
 
     results = []
     for c in checks:
+        if c.get('type') == 'triangle':
+            item = {'type': 'triangle', 'a': c.get('a'), 'b': c.get('b'), 'c': c.get('c'), 'ok': False}
+            try:
+                a, b, cc = float(c.get('a')), float(c.get('b')), float(c.get('c'))
+                item['ok'] = a > 0 and b > 0 and cc > 0 and a + b > cc and a + cc > b and b + cc > a
+            except Exception as e:
+                item['error'] = str(e)
+            results.append(item)
+            continue
         expr = str(c.get('expr', '')).replace('^', '**')
         equals = str(c.get('equals', '0')).replace('^', '**')
         variables = c.get('vars') or {}
