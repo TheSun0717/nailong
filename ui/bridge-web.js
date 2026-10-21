@@ -11,6 +11,9 @@
     hasSeenHint: true,
     userAvatar: false,
     petPosition: null,
+    petScale: 1,
+    petCanvas: 480,
+    petBubble: true,
     profile: { level: '', region: '', school: '', major: '', grade: '' },
   };
 
@@ -200,6 +203,7 @@
     onVideoProgress: () => {},
     openVideo: async () => false,
 
+    applyPetSettings: async () => false,
     petHover: () => {}, movePet: () => {}, moveEnd: () => {}, singleClick: () => {}, doubleClick: () => {},
     onFullscreen: () => {}, closeFullscreen: () => {}, closeChat: () => {},
   };

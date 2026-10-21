@@ -363,6 +363,9 @@
     font-size: 11.5px; color: var(--ink); line-height: 1.5;
   }
   .modal .check input { width: auto; height: auto; accent-color: var(--yellow); }
+  .update-notes { font-size: 12px; line-height: 1.6; max-height: 190px; overflow-y: auto; margin: 4px 0 2px; }
+  .update-notes ul { padding-left: 1.2em; margin: 6px 0; }
+  .update-notes p { margin: 4px 0; }
 
   /* 学习助手弹层 */
   #study-modal .card { width: 360px; }
@@ -523,7 +526,29 @@
       <input id="pet-canvas" type="range" min="360" max="640" step="20" value="480">
       <label class="check"><input id="pet-bubble" type="checkbox" checked> 自动气泡（关闭后不再自动说话，双击彩蛋保留）</label>
 
+      <h3 class="sec-title">🔄 更新</h3>
+      <div class="tip" id="version-line">当前版本 —</div>
+      <div class="btns">
+        <button id="check-update">检查更新</button>
+      </div>
+
       <button id="clear-conv">清空对话记录</button>
+    </div>
+  </div>
+
+  <div id="update-modal" class="modal">
+    <div class="card">
+      <h3 id="update-title">发现新版本</h3>
+      <div id="update-notes" class="update-notes"></div>
+      <div class="vprog" id="update-prog" style="display:none">
+        <div class="vbar"><i></i></div>
+        <div class="vmsg"></div>
+      </div>
+      <div class="btns">
+        <button id="update-later">稍后</button>
+        <button id="update-go">下载并安装</button>
+      </div>
+      <div class="tip">下载完成后奶龙会自动退出并安装，然后重新打开。</div>
     </div>
   </div>
 
@@ -1047,13 +1072,14 @@
     await window.nailong.applyPetSettings();
   }
 
-  function openSettings() {
+  async function openSettings() {
     $('#api-key').value = currentConfig.apiKey || '';
     $('#model-input').value = currentConfig.model || 'deepseek-chat';
     $('#pet-scale').value = currentConfig.petScale || 1;
     $('#pet-canvas').value = currentConfig.petCanvas || 480;
     $('#pet-bubble').checked = currentConfig.petBubble !== false;
     syncPetLabels();
+    try { $('#version-line').textContent = '当前版本 ' + (await window.nailong.getAppVersion()); } catch (_) {}
     $('#settings-modal').classList.add('open');
   }
   function closeSettings() {
@@ -1082,6 +1108,68 @@
     if (!confirm('清空全部对话记录？')) return;
     await window.nailong.clearConversation();
     location.reload();
+  };
+
+  /* ---------- 更新 ---------- */
+  let pendingUpdate = null;
+
+  async function checkUpdate() {
+    toast('正在检查更新…');
+    let r;
+    try { r = await window.nailong.checkUpdate(); } catch (e) { r = { ok: false, error: e.message }; }
+    if (!r || !r.ok) { toast('检查更新失败：' + ((r && r.error) || '网络问题')); return; }
+    if (!r.hasUpdate) { toast(`已是最新版本 ${r.current}`); return; }
+
+    pendingUpdate = r.app;
+    $('#update-title').textContent = `发现新版本 ${r.app.version}`;
+    const notes = r.app.notes || {};
+    const lines = [notes.summary || '', ...(notes.items || []).map((i) => `- ${i}`)].filter(Boolean).join('\n');
+    $('#update-notes').innerHTML = renderMd(lines || '（本次更新没有提供说明）');
+    const prog = $('#update-prog');
+    prog.style.display = 'none';
+    prog.querySelector('.vbar i').style.width = '0';
+    prog.querySelector('.vmsg').textContent = '';
+    $('#update-go').disabled = false;
+    $('#update-modal').classList.add('open');
+  }
+
+  async function silentUpdateCheck() {
+    try {
+      const r = await window.nailong.checkUpdate();
+      if (r && r.ok && r.hasUpdate) toast(`发现新版本 ${r.latest}，可在设置里更新`);
+    } catch (_) { /* 静默失败 */ }
+  }
+
+  $('#check-update').onclick = checkUpdate;
+  $('#update-later').onclick = () => $('#update-modal').classList.remove('open');
+
+  window.nailong.onUpdateProgress((p) => {
+    if (typeof window.__updateProgress === 'function') window.__updateProgress(p);
+  });
+
+  $('#update-go').onclick = async () => {
+    if (!pendingUpdate || !pendingUpdate.url) { toast('更新地址缺失'); return; }
+    $('#update-go').disabled = true;
+    const prog = $('#update-prog');
+    prog.style.display = 'flex';
+    const bar = prog.querySelector('.vbar i');
+    const msg = prog.querySelector('.vmsg');
+    window.__updateProgress = (p) => {
+      const pct = p.total ? Math.round((p.received / p.total) * 100) : 0;
+      bar.style.width = pct + '%';
+      msg.textContent = p.total
+        ? `${pct}% · ${(p.received / 1048576).toFixed(1)} / ${(p.total / 1048576).toFixed(1)} MB`
+        : `${(p.received / 1048576).toFixed(1)} MB`;
+    };
+    const res = await window.nailong.downloadUpdate(pendingUpdate.url, pendingUpdate.sha256);
+    window.__updateProgress = null;
+    if (!res || !res.ok) {
+      msg.textContent = '下载失败：' + ((res && res.error) || '未知错误');
+      $('#update-go').disabled = false;
+      return;
+    }
+    msg.textContent = '下载完成，正在退出并安装…';
+    await window.nailong.installUpdate(res.file);
   };
 
   /* ---------- 学习助手 ---------- */
@@ -1163,6 +1251,7 @@
   };
 
   init();
+  setTimeout(silentUpdateCheck, 5000);
 </script>
 </body>
 </html>

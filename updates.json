@@ -1,0 +1,20 @@
+{
+  "app": {
+    "version": "1.1.0",
+    "minVersion": "1.0.0",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.1.0/nailong-Setup-1.1.0.exe",
+    "sha256": "2749dd7222f1f7e49c130b26ba6d88cb020a2b350f6d9bfbde7e9c07140eed9b",
+    "notes": {
+      "summary": "插件化准备、桌宠设置与在线更新。",
+      "items": [
+        "新增在线更新：检查、更新日志、下载校验、静默安装",
+        "桌宠大小 0.5–2.0× 滑块，窗口大小可独立调节（默认 480）",
+        "自动气泡开关；气泡贴着奶龙头顶定位",
+        "插件宿主地基：清单校验、安装/更新/回滚",
+        "移除源码中的 API Key，改为本机配置"
+      ]
+    }
+  },
+  "plugins": [],
+  "catalogVersion": "2026-10-21"
+}

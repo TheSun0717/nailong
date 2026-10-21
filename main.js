@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, screen, nativeImage, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const { pathToFileURL } = require('url');
 const ai = require('./ai');
 const kb = require('./features/kb');
@@ -9,6 +9,7 @@ const study = require('./features/study');
 const teach = require('./features/teach');
 const video = require('./features/video');
 const bili = require('./features/bilibili');
+const updater = require('./features/updater');
 
 // 开发环境用独立 profile：避免和已安装版本抢单实例锁，也避免污染正式配置
 if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'nailong-dev'));
@@ -262,6 +263,50 @@ function registerIpc() {
       return { ok: false, error: e.message || String(e) };
     }
   });
+  const updateDir = path.join(app.getPath('temp'), 'nailong-update');
+
+  ipcMain.handle('app-version', () => app.getVersion());
+  ipcMain.handle('update-check', async () => {
+    try { return await updater.check(app.getVersion()); }
+    catch (e) { return { ok: false, error: e.message }; }
+  });
+  ipcMain.handle('update-download', async (event, { url, sha256 } = {}) => {
+    try {
+      const name = path.basename(new URL(String(url)).pathname) || 'nailong-update.exe';
+      const dest = path.join(updateDir, name);
+      const res = await updater.download(String(url), dest, sha256, (received, total) => {
+        if (!event.sender.isDestroyed()) event.sender.send('update-progress', { received, total });
+      });
+      return { ok: true, ...res };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle('update-install', (_e, file) => {
+    const target = path.resolve(String(file || ''));
+    if (!target.startsWith(path.resolve(updateDir) + path.sep)) return { ok: false, error: '非法路径' };
+    if (!fs.existsSync(target)) return { ok: false, error: '安装包不存在' };
+    // 先退出主程序，再由 PowerShell 静默安装；首次失败时自动再跑一次（NSIS 原地覆盖的已知问题）
+    const ps1 = path.join(updateDir, 'install-update.ps1');
+    fs.writeFileSync(ps1, [
+      'Start-Sleep -Seconds 2',
+      'Start-Process -FilePath $args[0] -ArgumentList "/S" -Wait',
+      '$dir = Join-Path $env:LOCALAPPDATA "Programs\\nailong"',
+      '$exe = Get-ChildItem $dir -Filter *.exe | Where-Object { $_.Name -notlike "Uninstall*" } | Select-Object -First 1',
+      'if (-not $exe) { Start-Process -FilePath $args[0] -ArgumentList "/S" -Wait; $exe = Get-ChildItem $dir -Filter *.exe | Where-Object { $_.Name -notlike "Uninstall*" } | Select-Object -First 1 }',
+      'if ($exe) { Start-Process -FilePath $exe.FullName }',
+    ].join('\r\n'), 'utf8');
+    try {
+      spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps1, target], {
+        detached: true, stdio: 'ignore', windowsHide: true,
+      }).unref();
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+    setTimeout(() => app.quit(), 800);
+    return { ok: true };
+  });
+
   ipcMain.handle('explain-open', (_e, file) => {
     try { return openExplainer(file); } catch (e) { return false; }
   });
