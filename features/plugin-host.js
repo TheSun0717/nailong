@@ -7,6 +7,7 @@ let ctx = null;
 const registry = new Map(); // name -> { pluginId, pluginName, description, handler }
 const loaded = new Map(); // id -> { manifest, dir }
 const timers = [];
+const progressSenders = new Map();
 
 const COMMAND_RE = /^[a-z0-9][a-z0-9-]{0,30}$/;
 
@@ -127,8 +128,15 @@ function createHost(manifest, dir) {
     if (!perms.has(p)) throw new Error(`插件 ${manifest.id} 未声明权限：${p}`);
   };
   const settings = readSettings(manifest.id);
+  const progress = (a, b) => {
+    let pct = a, msg = b;
+    if (a && typeof a === 'object') { pct = a.pct; msg = a.msg; }
+    const fn = progressSenders.get(manifest.id);
+    if (fn) fn({ pct: Math.max(0, Math.min(100, Number(pct) || 0)), msg: String(msg || '') });
+  };
 
   const host = {
+    progress,
     id: manifest.id,
     version: manifest.version,
     chat: {
@@ -162,10 +170,10 @@ function createHost(manifest, dir) {
       async search(platform, query) { need('web'); return ctx.caps.webSearch(String(platform), String(query)); },
     },
     video: {
-      async make(topic) { need('video'); return ctx.caps.videoMake(String(topic ?? '')); },
+      async make(topic) { need('video'); return ctx.caps.videoMake(String(topic ?? ''), progress); },
     },
     teach: {
-      async explain(topic) { need('teach'); return ctx.caps.teachExplain(String(topic ?? '')); },
+      async explain(topic) { need('teach'); return ctx.caps.teachExplain(String(topic ?? ''), progress); },
     },
     store: {
       async install(id) { need('store'); return ctx.caps.storeInstall(String(id)); },
@@ -212,9 +220,10 @@ function commands() {
   }));
 }
 
-async function runCommand(name, args) {
+async function runCommand(name, args, onProgress) {
   const cmd = registry.get(String(name || '').toLowerCase());
   if (!cmd) return { ok: false, error: `没有找到命令 /${name}` };
+  if (typeof onProgress === 'function') progressSenders.set(cmd.pluginId, onProgress);
   try {
     const raw = await cmd.handler(args);
     if (typeof raw === 'string') return { ok: true, pluginId: cmd.pluginId, result: { text: raw } };
@@ -222,6 +231,8 @@ async function runCommand(name, args) {
     return { ok: true, pluginId: cmd.pluginId, result: {} };
   } catch (e) {
     return { ok: false, error: e.message || String(e), pluginId: cmd.pluginId };
+  } finally {
+    if (typeof onProgress === 'function') progressSenders.delete(cmd.pluginId);
   }
 }
 

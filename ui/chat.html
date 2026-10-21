@@ -1550,6 +1550,9 @@
   window.nailong.onVideoProgress((p) => {
     if (typeof window.__videoProgress === 'function') window.__videoProgress(p);
   });
+  window.nailong.onPluginProgress((p) => {
+    if (typeof window.__pluginProgress === 'function') window.__pluginProgress(p);
+  });
 
   $('#input').addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || e.shiftKey) return;
@@ -1801,8 +1804,11 @@
         b.textContent = '/' + c.name;
         b.title = c.description || '';
         b.onclick = () => {
-          $('#plugins-modal').classList.remove('open');
-          runPluginCommand(c.name, '');
+          closePlugins();
+          const input = $('#input');
+          input.value = '/' + c.name + ' ';
+          autosize();
+          input.focus();
         };
         actions.appendChild(b);
       });
@@ -1927,15 +1933,37 @@
   }
 
   async function runPluginCommand(name, args = '') {
-    toast('运行 /' + name + '…');
-    const res = await window.nailong.runPluginCommand(name, args);
+    const tab = activeTab();
+    const wrap = addMsg('nailong', '', { typing: true, tab });
+    const bub = wrap.querySelector('.bubble');
+    bub.innerHTML = '<div class="vprog"><div class="vbar"><i></i></div><div class="vmsg">运行 /' + name + '…</div></div>';
+    const bar = bub.querySelector('.vbar i');
+    const msg = bub.querySelector('.vmsg');
+    window.__pluginProgress = (p) => {
+      if (!p || p.name !== name) return;
+      if (typeof p.pct === 'number') bar.style.width = p.pct + '%';
+      if (p.msg) msg.textContent = p.msg;
+    };
+    let res;
+    try { res = await window.nailong.runPluginCommand(name, args); }
+    catch (e) { res = { ok: false, error: e && e.message ? e.message : e }; }
+    window.__pluginProgress = null;
+    const meta = wrap.querySelector('.meta');
     if (!res || !res.ok) {
-      toast('插件出错：' + ((res && res.error) || '未知错误'));
+      bub.innerHTML = renderMd('插件出错：' + ((res && res.error) || '未知错误'));
+      meta.textContent = now();
       return;
     }
     const r = res.result || {};
-    if (r.text) addMsg('nailong', r.text);
-    if (r.panel) showPanel(r.panel);
+    bub.innerHTML = renderMd(r.text || '已完成');
+    meta.textContent = now();
+    if (r.panel) addAction(wrap.querySelector('.stack'), '查看结果', () => showPanel(r.panel));
+    if (r.openPath && window.nailong.openArtifact) {
+      addAction(wrap.querySelector('.stack'), '打开文件', () => window.nailong.openArtifact(r.openPath));
+    }
+    tab.history.push({ who: 'nailong', text: r.text || ('插件完成：' + name), ts: Date.now() });
+    saveTabs();
+    renderHistoryList();
   }
 
   function showPanel(panel) {

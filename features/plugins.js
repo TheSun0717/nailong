@@ -184,7 +184,8 @@ function ensureBundled(bundledDir) {
     try {
       if (!fs.statSync(src).isDirectory()) continue;
       const manifest = readManifest(src);
-      if (state.installed[manifest.id]) continue;
+      const current = list().find((d) => d.id === manifest.id);
+      if (current && !current.broken && compareVersions(current.version, manifest.version) >= 0) continue;
       installFromDir(src, { enable: true });
       added.push(manifest.id);
     } catch (e) {

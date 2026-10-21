@@ -459,13 +459,19 @@ function writeCache(dir, key, payload) {
 async function generate(topic, config, imagePath, opts = {}) {
   const q = String(topic || '').trim();
   if (!q && !imagePath) throw new Error('请提供知识点、题目或图片');
+  const emit = (pct, msg) => { try { if (opts.onProgress) opts.onProgress({ pct, msg }); } catch (_) {} };
   const promptText = q || '请先识别图片中的题目并解答';
+  emit(5, '解题中…');
   const key = cacheKey(promptText, config, imagePath);
   if (opts.cacheDir) {
     const hit = readCache(opts.cacheDir, key);
-    if (hit) return renderHtml(hit.spec, hit.issues || [], (hit.note || '') + ' · 命中缓存');
+    if (hit) {
+      emit(100, '命中缓存');
+      return renderHtml(hit.spec, hit.issues || [], (hit.note || '') + ' · 命中缓存');
+    }
   }
   let spec = augmentChecks(await solve(promptText, config, imagePath));
+  emit(35, '解题完成，开始校验…');
   let dualNote = '';
   // 双解一致性：只在纯文本题上做，避免图片题第二次看不到图
   if (!imagePath && promptText.length >= 6) {
@@ -479,6 +485,7 @@ async function generate(topic, config, imagePath, opts = {}) {
       }
     } catch (_) {}
   }
+  emit(55, '符号验算中…');
   const check = await runChecks(spec.checks, opts.sympyScript, opts.python);
   let extra = [];
   if (!check.allOk) {
@@ -488,7 +495,9 @@ async function generate(topic, config, imagePath, opts = {}) {
     if (recheck.allOk) extra = [];
     else if (recheck.failed.length) extra = ['符号验算仍有未通过项：' + recheck.failed.join('；')];
   }
+  emit(80, '阅卷校验中…');
   const verified = await verify(spec, config);
+  emit(95, '渲染讲解页…');
   const note = [check.note, dualNote].filter(Boolean).join(' · ');
   const issues = [...(verified.issues || []), ...extra];
   if (opts.cacheDir) writeCache(opts.cacheDir, key, { spec: verified.spec, issues, note });

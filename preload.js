@@ -55,6 +55,7 @@ contextBridge.exposeInMainWorld('nailong', {
   pluginStatus: () => ipcRenderer.invoke('plugin-status'),
   runPluginCommand: (name, args) => ipcRenderer.invoke('plugin-run', name, args),
   autoPlugin: (q) => ipcRenderer.invoke('plugin-auto', q),
+  onPluginProgress: (cb) => ipcRenderer.on('plugin-progress', (_e, p) => cb(p)),
   setPluginEnabled: (id, enabled) => ipcRenderer.invoke('plugin-set-enabled', id, enabled),
   removePlugin: (id) => ipcRenderer.invoke('plugin-remove', id),
   storeList: () => ipcRenderer.invoke('store-list'),

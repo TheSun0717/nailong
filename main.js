@@ -100,8 +100,8 @@ function initPluginHost() {
       kbAdd: async (text, meta) => kb.addText(meta && meta.name, text, meta || {}),
       kbList: async () => kb.list(),
       kbProfile: async () => config.profile || {},
-      teachExplain: async (topic) => {
-        const html = await teach.generate(topic, config);
+      teachExplain: async (topic, onProgress) => {
+        const html = await teach.generate(topic, config, null, { sympyScript, python: pyExe, cacheDir: teachCacheDir, onProgress });
         fs.mkdirSync(explainDir, { recursive: true });
         const file = path.join(explainDir, `explain-${Date.now()}.html`);
         fs.writeFileSync(file, html, 'utf8');
@@ -111,7 +111,7 @@ function initPluginHost() {
       aiAsk: async (p) => ({ text: await ai.askDeepSeek(p, config) }),
       openExternal: (u) => { if (/^https?:\/\//i.test(u)) shell.openExternal(u); },
       webSearch: (platform, q) => webSearch(platform, q),
-      videoMake: async (topic) => video.generate(topic, config, videoDir),
+      videoMake: async (topic, onProgress) => video.generate(topic, config, videoDir, onProgress || (() => {})),
       storeInstall: async () => ({ ok: false, error: '商店安装将在下一版开放' }),
     },
   });
@@ -398,7 +398,7 @@ function registerIpc() {
       if (payload && payload.imagePath) {
         try { image = safePath(String(payload.imagePath)); } catch (_) {}
       }
-      const html = await teach.generate(text, config, image, { sympyScript, python: pyExe, cacheDir: teachCacheDir });
+      const html = await teach.generate(text, config, image, { sympyScript, python: pyExe, cacheDir: teachCacheDir, onProgress });
       fs.mkdirSync(explainDir, { recursive: true });
       const file = path.join(explainDir, `explain-${Date.now()}.html`);
       fs.writeFileSync(file, html, 'utf8');
@@ -649,7 +649,12 @@ function registerIpc() {
       return { ok: false, error: e.message, used: [] };
     }
   });
-  ipcMain.handle('plugin-run', (_e, name, args) => pluginHost.runCommand(name, args));
+  ipcMain.handle('plugin-run', (event, name, args) => {
+    const onProgress = (p) => {
+      if (!event.sender.isDestroyed()) event.sender.send('plugin-progress', { name, ...p });
+    };
+    return pluginHost.runCommand(name, args, onProgress);
+  });
   ipcMain.handle('plugin-set-enabled', (_e, id, enabled) => {
     plugins.setEnabled(id, enabled);
     initPluginHost();
@@ -996,6 +1001,19 @@ app.whenReady().then(() => {
         app.exit(rows.length ? 0 : 1);
       } catch (e) {
         console.error('[webtest] ERR', e.message);
+        app.exit(2);
+      }
+    })();
+    return;
+  }
+  if (process.argv.includes('--jobtest')) {
+    (async () => {
+      try {
+        const r = await pluginHost.runCommand('explain', '勾股定理', (p) => console.log('[jobtest] progress', p));
+        console.log('[jobtest] result=', JSON.stringify(r).slice(0, 400));
+        app.exit(r.ok ? 0 : 1);
+      } catch (e) {
+        console.error('[jobtest] ERR', e.message);
         app.exit(2);
       }
     })();

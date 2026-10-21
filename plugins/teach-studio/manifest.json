@@ -1,7 +1,7 @@
 {
   "id": "teach-studio",
   "name": "讲解工坊",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minAppVersion": "1.6.0",
   "description": "把知识点做成交互讲解页和讲解视频，插件版。",
   "intro": {
@@ -10,8 +10,17 @@
     "whatHappens": "讲解页会在独立窗口打开；视频会存到本机并告诉你路径。",
     "ifFails": "讲解页需要先配置大模型 Key；视频还需要 VoiceStudio 和 ffmpeg。失败时按提示检查。"
   },
-  "permissions": ["chat", "teach", "video"],
-  "capabilities": ["teach.explain"],
+  "permissions": [
+    "chat",
+    "teach",
+    "video"
+  ],
+  "capabilities": [
+    "teach.explain"
+  ],
   "firstParty": true,
-  "entry": { "type": "module", "main": "main.js" }
+  "entry": {
+    "type": "module",
+    "main": "main.js"
+  }
 }
