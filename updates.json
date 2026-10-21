@@ -1,19 +1,19 @@
 {
   "app": {
-    "version": "1.13.0",
+    "version": "1.13.1",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.13.0/nailong-Setup-1.13.0.exe",
-    "sha256": "d51b03aac74be7489116ca9df456546da30580eb3ce9757f4cb04006a0ae5780",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.13.1/nailong-Setup-1.13.1.exe",
+    "sha256": "834ff21120f7276bf04eee52adb17b32967ad2c8eca1957e1892f5fcc7a8ac52",
     "notes": {
-      "summary": "双解一致性与视频绘制动画。",
+      "summary": "数据与依赖迁到 D 盘。",
       "items": [
-        "纯文本题独立解两次；不一致由阅卷模型仲裁",
-        "讲解页合并显示符号验算 + 双解结论",
-        "视频图示逐元素描边绘制 + 转场"
+        "开发版数据放项目 .userdata；安装版优先 D:\nailong-data",
+        "Python 依赖迁到 D:\nailong-tools\\py",
+        "清理 C 盘 pip 缓存与系统 rapidocr"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.13.0/nailong-Setup-1.13.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.13.1/nailong-Setup-1.13.1.exe"
     ]
   },
   "plugins": [],
