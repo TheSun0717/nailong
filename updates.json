@@ -1,20 +1,21 @@
 {
   "app": {
-    "version": "1.1.1",
+    "version": "1.2.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.1.1/nailong-Setup-1.1.1.exe",
-    "sha256": "2cacdb83bb5a01a0bbd91a8d07503fb91876d707e64d5bca99d3b943195bad6d",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.2.0/nailong-Setup-1.2.0.exe",
+    "sha256": "a91c69adf2e5a157f60e5316205cad23af89e7995c1c15849fd7df636741f00a",
     "notes": {
-      "summary": "修复与加固在线更新。",
+      "summary": "插件系统第一版。",
       "items": [
-        "更新清单改用 GitHub Contents API，避免 raw CDN 缓存导致的旧地址/404",
-        "更新下载走系统代理（Electron net.fetch），新增 ghproxy 镜像回退",
-        "下载完成做 SHA-256 校验",
-        "桌宠：0.5–2.0× 缩放、独立窗口大小（默认 480）、自动气泡开关"
+        "插件宿主：manifest 校验、能力总线、命令注册、模板面板",
+        "顶栏新增插件入口；输入框支持 /命令",
+        "示例插件 hello-plugin：/hello 演示说话与面板",
+        "插件随包分发，可启停/卸载",
+        "在线更新沿用 1.1.1（清单走 Contents API、SHA-256 校验）"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.1.1/nailong-Setup-1.1.1.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.2.0/nailong-Setup-1.2.0.exe"
     ]
   },
   "plugins": [],
