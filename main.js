@@ -10,6 +10,8 @@ const teach = require('./features/teach');
 const video = require('./features/video');
 const bili = require('./features/bilibili');
 const updater = require('./features/updater');
+const plugins = require('./features/plugins');
+const pluginHost = require('./features/plugin-host');
 
 // 开发环境用独立 profile：避免和已安装版本抢单实例锁，也避免污染正式配置
 if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'nailong-dev'));
@@ -23,6 +25,30 @@ const explainDir = path.join(dataDir, 'explain');
 const videoDir = path.join(dataDir, 'video');
 kb.init(path.join(dataDir, 'kb'));
 kb.ensureSeeds(path.join(__dirname, 'data', 'seed')).catch(() => {});
+
+const pluginsDir = path.join(dataDir, 'plugins');
+const pluginStatePath = path.join(dataDir, 'plugin-state.json');
+plugins.init(pluginsDir, pluginStatePath);
+plugins.ensureBundled(path.join(__dirname, 'plugins'));
+
+function initPluginHost() {
+  pluginHost.init({
+    pluginsDir,
+    userDataDir: dataDir,
+    appVersion: app.getVersion(),
+    caps: {
+      petSay: (t) => { if (petWin && !petWin.isDestroyed()) petWin.webContents.send('pet-say', t); },
+      notify: (t) => { if (chatWin && !chatWin.isDestroyed()) chatWin.webContents.send('plugin-notify', t); },
+      kbSearch: async (q) => kb.search(q, { school: config.profile && config.profile.school, level: config.profile && config.profile.level, limit: 6 }),
+      kbAdd: async (text, meta) => kb.addText(meta && meta.name, text, meta || {}),
+      aiAsk: async (p) => ({ text: await ai.askDeepSeek(p, config) }),
+      openExternal: (u) => { if (/^https?:\/\//i.test(u)) shell.openExternal(u); },
+      webSearch: async (platform, q) => (String(platform).toLowerCase() === 'bilibili' ? bili.search(q) : []),
+      videoMake: async (topic) => video.generate(topic, config, videoDir),
+      storeInstall: async () => ({ ok: false, error: '商店安装将在下一版开放' }),
+    },
+  });
+}
 const avatarPath = path.join(userDataDir, 'avatar.png');
 const assetsRoot = app.isPackaged
   ? path.join(process.resourcesPath, 'assets')
@@ -450,6 +476,21 @@ function registerIpc() {
     petWin.webContents.reload();
     return true;
   });
+  ipcMain.handle('plugin-list', () => plugins.list(app.getVersion()));
+  ipcMain.handle('plugin-commands', () => pluginHost.commands());
+  ipcMain.handle('plugin-status', () => pluginHost.status());
+  ipcMain.handle('plugin-run', (_e, name, args) => pluginHost.runCommand(name, args));
+  ipcMain.handle('plugin-set-enabled', (_e, id, enabled) => {
+    plugins.setEnabled(id, enabled);
+    initPluginHost();
+    return pluginHost.status();
+  });
+  ipcMain.handle('plugin-remove', (_e, id) => {
+    plugins.remove(id);
+    initPluginHost();
+    return true;
+  });
+
   ipcMain.on('pet-hover', (_e, hovering) => {
     if (!petWin) return;
     if (hovering) petWin.setIgnoreMouseEvents(false);
@@ -558,6 +599,14 @@ async function captureUi() {
     await shot(chatWin, 'chat-settings.png');
     await chatWin.webContents.executeJavaScript("document.querySelector('#cancel-key').click()");
     await wait(250);
+    await chatWin.webContents.executeJavaScript("document.querySelector('#plugins-btn').click()");
+    await wait(500);
+    await shot(chatWin, 'chat-plugins.png');
+    await chatWin.webContents.executeJavaScript("document.querySelector('#plugins-modal').classList.remove('open'); runPluginCommand('hello','')");
+    await wait(800);
+    await shot(chatWin, 'chat-panel.png');
+    await chatWin.webContents.executeJavaScript("document.querySelector('#panel-modal').classList.remove('open')");
+    await wait(250);
     await chatWin.webContents.executeJavaScript(`(() => {
       document.querySelector('#study-btn').click();
       document.querySelector('#p-level').value = '本科';
@@ -619,6 +668,21 @@ app.whenReady().then(() => {
   registerIpc();
   createPet();
   createTray();
+  initPluginHost();
+  if (process.argv.includes('--plugintest')) {
+    (async () => {
+      try {
+        console.log('[plugintest] status=', JSON.stringify(pluginHost.status()));
+        const r = await pluginHost.runCommand('hello', '');
+        console.log('[plugintest] result=', JSON.stringify(r));
+        app.exit(r.ok ? 0 : 1);
+      } catch (e) {
+        console.error('[plugintest] ERR', e.message);
+        app.exit(2);
+      }
+    })();
+    return;
+  }
   if (process.argv.includes('--updatetest')) {
     (async () => {
       try {

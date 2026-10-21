@@ -241,7 +241,7 @@ data/video|explain/      产物
 
 - [x] 需求 grilling（3 轮）与界限确认
 - [x] 项目级 CLAUDE.md
-- [ ] 插件宿主 + manifest + 能力总线
+- [x] 插件宿主 + manifest + 能力总线 + 命令/面板 + 示例插件（hello-plugin）
 - [ ] 商店 + 安装/更新/回滚
 - [x] 主程序在线更新（自研：检查/日志/下载校验/静默安装；net.fetch 走系统代理 + ghproxy 镜像）
 - [ ] 学习助手 / 讲解工坊 插件化

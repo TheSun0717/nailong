@@ -152,8 +152,27 @@ function sha256(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
+// 把随包分发的内置插件复制到用户插件目录（只装一次，之后由用户启停/更新）
+function ensureBundled(bundledDir) {
+  if (!fs.existsSync(bundledDir)) return [];
+  const added = [];
+  for (const id of fs.readdirSync(bundledDir)) {
+    const src = path.join(bundledDir, id);
+    try {
+      if (!fs.statSync(src).isDirectory()) continue;
+      const manifest = readManifest(src);
+      if (state.installed[manifest.id]) continue;
+      installFromDir(src, { enable: true });
+      added.push(manifest.id);
+    } catch (e) {
+      console.warn('[plugins] 内置插件跳过', id, e.message);
+    }
+  }
+  return added;
+}
+
 module.exports = {
   init, list, installFromDir, remove, setEnabled, enabledIds,
-  validateManifest, isCompatible, compareVersions, sha256,
+  validateManifest, isCompatible, compareVersions, sha256, ensureBundled,
   ALLOWED_PERMISSIONS, INTRO_FIELDS,
 };

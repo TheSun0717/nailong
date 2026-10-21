@@ -367,6 +367,27 @@
   .update-notes ul { padding-left: 1.2em; margin: 6px 0; }
   .update-notes p { margin: 4px 0; }
 
+  .plugin-list { display: flex; flex-direction: column; gap: 10px; max-height: 360px; overflow-y: auto; }
+  .plugin-item { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--paper); }
+  .plugin-head { display: flex; align-items: center; gap: 8px; }
+  .plugin-name { font-size: 13px; font-weight: 700; }
+  .plugin-ver { font-size: 10px; color: var(--ink-soft); }
+  .plugin-what { font-size: 11.5px; color: var(--ink-soft); line-height: 1.55; margin: 6px 0 8px; }
+  .plugin-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .plugin-actions button {
+    border: 1.5px solid var(--line); background: var(--paper); border-radius: 999px;
+    padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: inherit; color: var(--ink);
+  }
+  .plugin-actions button:hover { background: var(--cream-deep); }
+  .plugin-actions .plugin-cmd { border-color: var(--yellow-deep); background: var(--yellow); box-shadow: 0 2px 0 var(--yellow-deep); font-weight: 700; }
+  .plugin-off { opacity: .62; }
+  .panel-step { border-left: 3px solid var(--yellow); padding: 4px 0 4px 10px; margin: 10px 0; }
+  .panel-step h4 { font-size: 13px; margin-bottom: 4px; }
+  .panel-step p { font-size: 12px; line-height: 1.6; color: var(--ink-soft); }
+  .panel-item { border-bottom: 1px dashed var(--line); padding: 8px 0; }
+  .panel-item b { font-size: 12.5px; }
+  .panel-item p { font-size: 11.5px; color: var(--ink-soft); margin-top: 3px; line-height: 1.5; }
+
   /* 学习助手弹层 */
   #study-modal .card { width: 360px; }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
@@ -419,6 +440,7 @@
       </div>
     </div>
     <div class="header-actions">
+      <button class="icon-btn" id="plugins-btn" title="插件">🧩</button>
       <button class="icon-btn" id="settings-btn" title="设置 DeepSeek 接口">⚙</button>
       <button class="icon-btn" id="close" title="关闭">✕</button>
     </div>
@@ -533,6 +555,23 @@
       </div>
 
       <button id="clear-conv">清空对话记录</button>
+    </div>
+  </div>
+
+  <div id="plugins-modal" class="modal">
+    <div class="card">
+      <h3>🧩 插件</h3>
+      <div id="plugin-list" class="plugin-list"></div>
+      <div class="tip">在输入框里输入 <b>/命令</b> 也能直接运行。更多插件开发中。</div>
+      <div class="btns"><button id="plugins-close">关闭</button></div>
+    </div>
+  </div>
+
+  <div id="panel-modal" class="modal">
+    <div class="card">
+      <h3 id="panel-title">插件面板</h3>
+      <div id="panel-body"></div>
+      <div class="btns"><button id="panel-close">关闭</button></div>
     </div>
   </div>
 
@@ -779,6 +818,15 @@
     const input = $('#input');
     const q = input.value.trim();
     if (!q) return;
+
+    const slash = /^\/([a-z0-9-]+)\s*([\s\S]*)$/i.exec(q);
+    if (slash) {
+      input.value = '';
+      autosize();
+      addMsg('me', q);
+      runPluginCommand(slash[1].toLowerCase(), slash[2] || '');
+      return;
+    }
 
     input.value = '';
     autosize();
@@ -1171,6 +1219,140 @@
     msg.textContent = '下载完成，正在退出并安装…';
     await window.nailong.installUpdate(res.file);
   };
+
+  /* ---------- 插件 ---------- */
+  async function openPlugins() {
+    $('#plugins-modal').classList.add('open');
+    await renderPlugins();
+  }
+
+  async function renderPlugins() {
+    const box = $('#plugin-list');
+    box.textContent = '加载中…';
+    let list = [];
+    let cmds = [];
+    try {
+      list = await window.nailong.listPlugins();
+      cmds = await window.nailong.pluginCommands();
+    } catch (e) {
+      box.textContent = '插件列表读取失败：' + (e && e.message ? e.message : e);
+      return;
+    }
+    box.innerHTML = '';
+    if (!Array.isArray(list) || !list.length) {
+      box.textContent = '还没有安装插件。';
+      return;
+    }
+    for (const p of list) {
+      if (p.broken) {
+        const d = document.createElement('div');
+        d.className = 'plugin-item';
+        d.textContent = `${p.id} 加载失败：${p.error}`;
+        box.appendChild(d);
+        continue;
+      }
+      const item = document.createElement('div');
+      item.className = 'plugin-item' + (p.enabled ? '' : ' plugin-off');
+      const head = document.createElement('div');
+      head.className = 'plugin-head';
+      const name = document.createElement('span');
+      name.className = 'plugin-name';
+      name.textContent = p.name;
+      const ver = document.createElement('span');
+      ver.className = 'plugin-ver';
+      ver.textContent = 'v' + p.version;
+      head.append(name, ver);
+      const what = document.createElement('div');
+      what.className = 'plugin-what';
+      what.textContent = (p.intro && p.intro.what) || p.description || '';
+
+      const actions = document.createElement('div');
+      actions.className = 'plugin-actions';
+      cmds.filter((c) => c.pluginId === p.id).forEach((c) => {
+        const b = document.createElement('button');
+        b.className = 'plugin-cmd';
+        b.textContent = '/' + c.name;
+        b.title = c.description || '';
+        b.onclick = () => {
+          $('#plugins-modal').classList.remove('open');
+          runPluginCommand(c.name, '');
+        };
+        actions.appendChild(b);
+      });
+      const toggle = document.createElement('button');
+      toggle.textContent = p.enabled ? '停用' : '启用';
+      toggle.onclick = async () => {
+        await window.nailong.setPluginEnabled(p.id, !p.enabled);
+        await renderPlugins();
+      };
+      actions.appendChild(toggle);
+      const del = document.createElement('button');
+      del.textContent = '卸载';
+      del.onclick = async () => {
+        if (!confirm(`卸载「${p.name}」？（内置插件会在下次启动时恢复）`)) return;
+        await window.nailong.removePlugin(p.id);
+        await renderPlugins();
+      };
+      actions.appendChild(del);
+
+      item.append(head, what, actions);
+      box.appendChild(item);
+    }
+  }
+
+  async function runPluginCommand(name, args = '') {
+    toast('运行 /' + name + '…');
+    const res = await window.nailong.runPluginCommand(name, args);
+    if (!res || !res.ok) {
+      toast('插件出错：' + ((res && res.error) || '未知错误'));
+      return;
+    }
+    const r = res.result || {};
+    if (r.text) addMsg('nailong', r.text);
+    if (r.panel) showPanel(r.panel);
+  }
+
+  function showPanel(panel) {
+    const data = (panel && panel.data) || {};
+    const box = $('#panel-body');
+    box.innerHTML = '';
+    $('#panel-title').textContent = data.title || '插件面板';
+    if (panel.template === 'steps' && Array.isArray(data.steps)) {
+      data.steps.forEach((s) => {
+        const d = document.createElement('div');
+        d.className = 'panel-step';
+        const h = document.createElement('h4');
+        h.textContent = s.title || '';
+        const p = document.createElement('p');
+        p.textContent = s.body || '';
+        d.append(h, p);
+        box.appendChild(d);
+      });
+    } else if (panel.template === 'list' && Array.isArray(data.items)) {
+      data.items.forEach((it) => {
+        const d = document.createElement('div');
+        d.className = 'panel-item';
+        const b = document.createElement('b');
+        b.textContent = it.title || '';
+        const p = document.createElement('p');
+        p.textContent = it.subtitle || '';
+        d.append(b, p);
+        box.appendChild(d);
+      });
+    } else if (panel.template === 'form') {
+      box.textContent = '表单面板将在下一版开放。';
+    } else {
+      box.textContent = '暂不支持的面板类型：' + panel.template;
+    }
+    $('#panel-modal').classList.add('open');
+  }
+
+  $('#plugins-btn').onclick = openPlugins;
+  $('#plugins-close').onclick = () => $('#plugins-modal').classList.remove('open');
+  $('#panel-close').onclick = () => $('#panel-modal').classList.remove('open');
+  if (window.nailong.onPluginNotify) {
+    window.nailong.onPluginNotify((t) => toast(String(t || '')));
+  }
 
   /* ---------- 学习助手 ---------- */
   function openStudy() {

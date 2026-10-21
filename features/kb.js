@@ -152,6 +152,28 @@ function remove(id) {
   return true;
 }
 
+// 插件写入一段文字（不需要走文件导入）
+function addText(name, text, meta = {}) {
+  const chunks = chunkText(text);
+  if (!chunks.length) throw new Error('没有可用的文字');
+  const doc = {
+    id: crypto.randomBytes(6).toString('hex'),
+    name: String(name || meta.name || '插件写入').slice(0, 80),
+    source: meta.source || '插件',
+    kind: meta.kind || 'notes',
+    sourceUrl: meta.sourceUrl || '',
+    school: meta.school || '',
+    course: meta.course || '',
+    level: meta.level || '',
+    ts: Date.now(),
+    chars: String(text).length,
+  };
+  index.docs.push(doc);
+  chunks.forEach((t, i) => index.chunks.push({ docId: doc.id, i, text: t, tf: termFreq(tokenize(t)) }));
+  save();
+  return { id: doc.id, chunks: chunks.length };
+}
+
 // BM25（k1=1.5, b=0.75）
 function search(query, opts = {}) {
   const qTokens = tokenize(query);
@@ -245,4 +267,4 @@ async function ensureSeeds(dir) {
   }
 }
 
-module.exports = { init, importFiles, list, remove, search, chunkText, tokenize, ensureSeeds };
+module.exports = { init, importFiles, list, remove, search, chunkText, tokenize, ensureSeeds, addText };

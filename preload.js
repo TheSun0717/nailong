@@ -44,6 +44,16 @@ contextBridge.exposeInMainWorld('nailong', {
   // 宠物窗口交互
   applyPetSettings: () => ipcRenderer.invoke('pet-apply'),
 
+  // 插件
+  listPlugins: () => ipcRenderer.invoke('plugin-list'),
+  pluginCommands: () => ipcRenderer.invoke('plugin-commands'),
+  pluginStatus: () => ipcRenderer.invoke('plugin-status'),
+  runPluginCommand: (name, args) => ipcRenderer.invoke('plugin-run', name, args),
+  setPluginEnabled: (id, enabled) => ipcRenderer.invoke('plugin-set-enabled', id, enabled),
+  removePlugin: (id) => ipcRenderer.invoke('plugin-remove', id),
+  onPetSay: (cb) => ipcRenderer.on('pet-say', (_e, t) => cb(t)),
+  onPluginNotify: (cb) => ipcRenderer.on('plugin-notify', (_e, t) => cb(t)),
+
   // 更新
   getAppVersion: () => ipcRenderer.invoke('app-version'),
   checkUpdate: () => ipcRenderer.invoke('update-check'),

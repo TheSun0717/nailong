@@ -196,6 +196,7 @@
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden) state.lastInteract = Date.now();
       });
+      window.nailong.onPetSay((t) => say(String(t || ''), 3600, true));
       setTimeout(() => say('双击我试试吧！'), 15000);
     }
 
@@ -209,8 +210,8 @@
       setTimeout(() => { pet.src = next; pet.style.opacity = '1'; }, 90);
     }
 
-    function say(text, ms = 3600) {
-      if (!bubbleEnabled) return;
+    function say(text, ms = 3600, force = false) {
+      if (!bubbleEnabled && !force) return;
       clearTimeout(state.bubbleTimer);
       bubble.textContent = text;
       // 气泡贴着奶龙头顶，并按窗口高度做一次夹取，避免 2.0× 时被裁掉

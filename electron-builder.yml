@@ -9,6 +9,7 @@ files:
   - preload.js
   - features/**
   - data/**
+  - plugins/**
   - ui/**
   - package.json
 

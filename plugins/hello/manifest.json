@@ -1,0 +1,19 @@
+{
+  "id": "hello-plugin",
+  "name": "示例插件",
+  "version": "1.0.0",
+  "minAppVersion": "1.1.1",
+  "description": "演示插件能力：注册命令、说话、弹面板。",
+  "intro": {
+    "what": "它给奶龙加两个小命令，一个是打招呼，一个是看它能做什么。",
+    "how": "点聊天窗右上角的拼图按钮，找到「示例插件」，再点「运行」；或者在输入框里打 /hello。",
+    "whatHappens": "奶龙会说话，还会弹出一个分步说明卡片。",
+    "ifFails": "在插件列表里把它关掉再打开；还不行就点「问题反馈」告诉作者。"
+  },
+  "permissions": ["chat", "pet", "ui"],
+  "capabilities": ["demo.greet"],
+  "dependencies": {},
+  "firstParty": true,
+  "entry": { "type": "module", "main": "main.js" },
+  "icon": "icon.png"
+}
