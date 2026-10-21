@@ -1,0 +1,24 @@
+{
+  "id": "bili-search",
+  "name": "B站搜索",
+  "version": "1.0.0",
+  "minAppVersion": "1.2.0",
+  "description": "在奶龙里搜索 B 站公开课，结果可以直接打开。",
+  "intro": {
+    "what": "它让奶龙会搜 B 站视频，比如搜「线性代数」「机器学习」。",
+    "how": "装好后点右上角拼图 → 商店/已安装，点 /bili；或者在输入框里打 /bili 线性代数。",
+    "whatHappens": "奶龙会列出相关视频、UP 主和播放量，点「打开」就能看。",
+    "ifFails": "检查网络；在插件列表里关掉再打开；还不行就点问题反馈。"
+  },
+  "permissions": ["chat", "web", "ui"],
+  "capabilities": [],
+  "commands": [
+    {
+      "name": "bili",
+      "description": "搜索 B 站视频，例如 /bili 线性代数",
+      "action": { "type": "web.search", "platform": "bilibili", "queryFrom": "args" }
+    }
+  ],
+  "firstParty": false,
+  "icon": "icon.png"
+}

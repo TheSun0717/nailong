@@ -51,6 +51,8 @@ contextBridge.exposeInMainWorld('nailong', {
   runPluginCommand: (name, args) => ipcRenderer.invoke('plugin-run', name, args),
   setPluginEnabled: (id, enabled) => ipcRenderer.invoke('plugin-set-enabled', id, enabled),
   removePlugin: (id) => ipcRenderer.invoke('plugin-remove', id),
+  storeList: () => ipcRenderer.invoke('store-list'),
+  storeInstall: (id) => ipcRenderer.invoke('store-install', id),
   onPetSay: (cb) => ipcRenderer.on('pet-say', (_e, t) => cb(t)),
   onPluginNotify: (cb) => ipcRenderer.on('plugin-notify', (_e, t) => cb(t)),
 

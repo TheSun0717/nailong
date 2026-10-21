@@ -12,6 +12,7 @@ const bili = require('./features/bilibili');
 const updater = require('./features/updater');
 const plugins = require('./features/plugins');
 const pluginHost = require('./features/plugin-host');
+const store = require('./features/store');
 
 // 开发环境用独立 profile：避免和已安装版本抢单实例锁，也避免污染正式配置
 if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'nailong-dev'));
@@ -490,6 +491,25 @@ function registerIpc() {
     initPluginHost();
     return true;
   });
+  ipcMain.handle('store-list', async () => {
+    try { return { ok: true, items: await store.list(app.getVersion()) }; }
+    catch (e) { return { ok: false, error: e.message }; }
+  });
+  ipcMain.handle('store-install', async (_e, id) => {
+    try {
+      const items = await store.list(app.getVersion());
+      const entry = items.find((p) => p.id === id);
+      if (!entry) return { ok: false, error: '商店里没有这个插件' };
+      const m = await store.install(entry, {
+        appVersion: app.getVersion(),
+        tmpRoot: path.join(app.getPath('temp'), 'nailong-store'),
+      });
+      initPluginHost();
+      return { ok: true, plugin: m };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
 
   ipcMain.on('pet-hover', (_e, hovering) => {
     if (!petWin) return;
@@ -669,6 +689,27 @@ app.whenReady().then(() => {
   createPet();
   createTray();
   initPluginHost();
+  if (process.argv.includes('--storetest')) {
+    (async () => {
+      try {
+        const items = await store.list(app.getVersion());
+        console.log('[storetest] items=', items.map((i) => `${i.id}@${i.version}`).join(','));
+        const m = await store.install(items[0], {
+          appVersion: app.getVersion(),
+          tmpRoot: path.join(app.getPath('temp'), 'nailong-store-test'),
+        });
+        console.log('[storetest] installed=', m.id, m.version);
+        initPluginHost();
+        const r = await pluginHost.runCommand('bili', '线性代数 怎么学');
+        console.log('[storetest] run=', JSON.stringify(r).slice(0, 500));
+        app.exit(r.ok ? 0 : 1);
+      } catch (e) {
+        console.error('[storetest] ERR', e.message);
+        app.exit(2);
+      }
+    })();
+    return;
+  }
   if (process.argv.includes('--plugintest')) {
     (async () => {
       try {

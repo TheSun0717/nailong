@@ -19,13 +19,61 @@ function init(options) {
 
   for (const p of plugins.list(ctx.appVersion)) {
     if (!p.enabled || !p.compatible || p.broken) continue;
-    if (!p.firstParty) continue; // 第三方插件只允许声明式，不执行代码
-    if (!p.entry || !p.entry.main) continue;
     try {
-      load(p);
+      // 声明式命令：任何插件都能用，不执行代码
+      registerDeclarative(p);
+      // 第一方插件才允许执行 main.js
+      if (p.firstParty && p.entry && p.entry.main) load(p);
     } catch (e) {
       console.warn(`[plugin-host] 加载 ${p.id} 失败：`, e.message);
     }
+  }
+}
+
+async function runDeclarative(manifest, cmd, args) {
+  const perms = new Set(manifest.permissions || []);
+  const a = cmd.action || {};
+  if (a.type === 'web.search') {
+    if (!perms.has('web')) throw new Error(`插件 ${manifest.id} 未声明权限：web`);
+    const q = a.queryFrom === 'literal' ? String(a.query || '') : String(args || '').trim();
+    if (!q) throw new Error('请在命令后面输入关键词');
+    const items = await ctx.caps.webSearch(a.platform || 'bilibili', q);
+    const list = (items || []).map((it) => ({
+      title: it.title,
+      subtitle: `${it.up || ''} · 播放 ${it.play || 0}`,
+      action: it.url ? { type: 'open', url: it.url } : undefined,
+    }));
+    return {
+      text: `找到 ${list.length} 条（${q}）`,
+      panel: { template: 'list', data: { title: `${a.platform || 'B站'} 搜索：${q}`, items: list } },
+    };
+  }
+  if (a.type === 'ai.ask') {
+    if (!perms.has('ai')) throw new Error(`插件 ${manifest.id} 未声明权限：ai`);
+    const prompt = String(a.prompt || '{{args}}').replace(/\{\{args\}\}/g, String(args || ''));
+    const r = await ctx.caps.aiAsk(prompt);
+    return { text: (r && r.text) || '' };
+  }
+  if (a.type === 'notify') {
+    if (!perms.has('notify')) throw new Error(`插件 ${manifest.id} 未声明权限：notify`);
+    ctx.caps.notify(String(a.text || args || ''));
+    return { text: '已发送通知' };
+  }
+  throw new Error('不支持的动作类型：' + a.type);
+}
+
+function registerDeclarative(manifest) {
+  for (const c of Array.isArray(manifest.commands) ? manifest.commands : []) {
+    if (!c || !c.name) continue;
+    const name = String(c.name).toLowerCase();
+    if (!COMMAND_RE.test(name)) throw new Error('非法命令名：' + name);
+    if (registry.has(name)) throw new Error('命令已存在：' + name);
+    registry.set(name, {
+      pluginId: manifest.id,
+      pluginName: manifest.name,
+      description: c.description || '',
+      handler: (args) => runDeclarative(manifest, c, args),
+    });
   }
 }
 

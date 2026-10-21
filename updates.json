@@ -16,6 +16,37 @@
       "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.2.1/nailong-Setup-1.2.1.exe"
     ]
   },
-  "plugins": [],
+  "plugins": [
+    {
+      "id": "bili-search",
+      "name": "B站搜索",
+      "version": "1.0.0",
+      "minAppVersion": "1.2.0",
+      "description": "在奶龙里搜索 B 站公开课，结果可以直接打开。",
+      "intro": {
+        "what": "它让奶龙会搜 B 站视频，比如搜「线性代数」「机器学习」。",
+        "how": "装好后点右上角拼图 → 已安装，点 /bili；或输入 /bili 线性代数。",
+        "whatHappens": "奶龙会列出相关视频、UP 主和播放量，点「打开」就能看。",
+        "ifFails": "检查网络；在插件列表里关掉再打开；还不行就点问题反馈。"
+      },
+      "permissions": [
+        "chat",
+        "web",
+        "ui"
+      ],
+      "url": "https://github.com/TheSun0717/nailong/releases/download/plugin-packs/bili-search-1.0.0.zip",
+      "sha256": "3482e326926524f916ba333505bbfd7485ad6f717a75d5c06a8305628880e662",
+      "mirrors": [
+        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/plugin-packs/bili-search-1.0.0.zip"
+      ],
+      "notes": {
+        "summary": "首个商店插件。",
+        "items": [
+          "/bili 关键词 搜索 B 站公开课",
+          "结果可直接打开"
+        ]
+      }
+    }
+  ],
   "catalogVersion": "2026-10-21"
 }

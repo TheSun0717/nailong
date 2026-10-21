@@ -125,4 +125,4 @@ async function download(urls, dest, expectedSha, onProgress = () => {}) {
   throw lastErr || new Error('没有可用的下载地址');
 }
 
-module.exports = { check, download, compareVersions, SOURCES };
+module.exports = { check, download, compareVersions, fetchManifest, SOURCES };

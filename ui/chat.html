@@ -367,6 +367,12 @@
   .update-notes ul { padding-left: 1.2em; margin: 6px 0; }
   .update-notes p { margin: 4px 0; }
 
+  .plugin-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
+  .plugin-tabs .ptab {
+    flex: 1; border: 1.5px solid var(--line); background: var(--paper); border-radius: 10px;
+    padding: 6px 0; font-size: 12px; font-family: inherit; cursor: pointer; color: var(--ink);
+  }
+  .plugin-tabs .ptab.active { background: var(--yellow); border-color: var(--yellow-deep); font-weight: 700; box-shadow: 0 2px 0 var(--yellow-deep); }
   .plugin-list { display: flex; flex-direction: column; gap: 10px; max-height: 360px; overflow-y: auto; }
   .plugin-item { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--paper); }
   .plugin-head { display: flex; align-items: center; gap: 8px; }
@@ -384,7 +390,13 @@
   .panel-step { border-left: 3px solid var(--yellow); padding: 4px 0 4px 10px; margin: 10px 0; }
   .panel-step h4 { font-size: 13px; margin-bottom: 4px; }
   .panel-step p { font-size: 12px; line-height: 1.6; color: var(--ink-soft); }
-  .panel-item { border-bottom: 1px dashed var(--line); padding: 8px 0; }
+  .panel-item { display: flex; align-items: center; gap: 8px; border-bottom: 1px dashed var(--line); padding: 8px 0; }
+  .panel-item .pi-main { flex: 1; min-width: 0; }
+  .panel-item button {
+    flex: 0 0 auto; border: 1.5px solid var(--line); background: var(--paper); border-radius: 999px;
+    padding: 3px 9px; font-size: 11px; cursor: pointer; font-family: inherit; color: var(--ink);
+  }
+  .panel-item button:hover { background: var(--cream-deep); }
   .panel-item b { font-size: 12.5px; }
   .panel-item p { font-size: 11.5px; color: var(--ink-soft); margin-top: 3px; line-height: 1.5; }
 
@@ -561,6 +573,10 @@
   <div id="plugins-modal" class="modal">
     <div class="card">
       <h3>🧩 插件</h3>
+      <div class="plugin-tabs">
+        <button class="ptab active" data-tab="installed">已安装</button>
+        <button class="ptab" data-tab="store">商店</button>
+      </div>
       <div id="plugin-list" class="plugin-list"></div>
       <div class="tip">在输入框里输入 <b>/命令</b> 也能直接运行。更多插件开发中。</div>
       <div class="btns"><button id="plugins-close">关闭</button></div>
@@ -1226,8 +1242,12 @@
     await renderPlugins();
   }
 
+  let pluginTab = 'installed';
+
   async function renderPlugins() {
     const box = $('#plugin-list');
+    document.querySelectorAll('.ptab').forEach((b) => b.classList.toggle('active', b.dataset.tab === pluginTab));
+    if (pluginTab === 'store') return renderStore(box);
     box.textContent = '加载中…';
     let list = [];
     let cmds = [];
@@ -1300,6 +1320,96 @@
     }
   }
 
+  function cmpVersion(a, b) {
+    const pa = String(a || '0.0.0').split('.').map(Number);
+    const pb = String(b || '0.0.0').split('.').map(Number);
+    for (let i = 0; i < 3; i++) {
+      if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0) ? 1 : -1;
+    }
+    return 0;
+  }
+
+  async function renderStore(box) {
+    box.textContent = '加载中…';
+    let r;
+    try { r = await window.nailong.storeList(); } catch (e) { r = { ok: false, error: e.message }; }
+    if (!r || !r.ok) { box.textContent = '商店加载失败：' + ((r && r.error) || '网络问题'); return; }
+
+    box.innerHTML = '';
+    const workshop = document.createElement('div');
+    workshop.className = 'plugin-item plugin-off';
+    const wh = document.createElement('div');
+    wh.className = 'plugin-head';
+    const wn = document.createElement('span');
+    wn.className = 'plugin-name';
+    wn.textContent = '能力工坊';
+    wh.appendChild(wn);
+    const ww = document.createElement('div');
+    ww.className = 'plugin-what';
+    ww.textContent = '一句话描述你想要的功能，奶龙帮你生成插件（下一版开放）。';
+    workshop.append(wh, ww);
+    box.appendChild(workshop);
+
+    let installed = [];
+    try { installed = await window.nailong.listPlugins(); } catch (_) {}
+    const items = r.items || [];
+    if (!items.length) {
+      const d = document.createElement('div');
+      d.className = 'tip';
+      d.textContent = '商店暂时没有插件。';
+      box.appendChild(d);
+      return;
+    }
+
+    for (const it of items) {
+      const cur = (installed || []).find((p) => p.id === it.id);
+      const item = document.createElement('div');
+      item.className = 'plugin-item';
+      const head = document.createElement('div');
+      head.className = 'plugin-head';
+      const name = document.createElement('span');
+      name.className = 'plugin-name';
+      name.textContent = it.name || it.id;
+      const ver = document.createElement('span');
+      ver.className = 'plugin-ver';
+      ver.textContent = 'v' + (it.version || '?');
+      head.append(name, ver);
+      const what = document.createElement('div');
+      what.className = 'plugin-what';
+      what.textContent = (it.intro && it.intro.what) || it.description || '';
+      const actions = document.createElement('div');
+      actions.className = 'plugin-actions';
+      const btn = document.createElement('button');
+      if (!it.compatible) {
+        btn.textContent = '需要新版奶龙';
+        btn.disabled = true;
+      } else if (cur && cmpVersion(cur.version, it.version) >= 0) {
+        btn.textContent = '已安装';
+        btn.disabled = true;
+      } else {
+        btn.className = 'plugin-cmd';
+        btn.textContent = cur ? '更新到 ' + it.version : '安装';
+        btn.onclick = async () => {
+          btn.disabled = true;
+          btn.textContent = '安装中…';
+          toast('正在安装 ' + (it.name || it.id) + '…');
+          const res = await window.nailong.storeInstall(it.id);
+          if (!res || !res.ok) {
+            toast('安装失败：' + ((res && res.error) || '未知错误'));
+            btn.disabled = false;
+            btn.textContent = cur ? '更新到 ' + it.version : '安装';
+            return;
+          }
+          toast('已安装 ' + (it.name || it.id));
+          await renderPlugins();
+        };
+      }
+      actions.appendChild(btn);
+      item.append(head, what, actions);
+      box.appendChild(item);
+    }
+  }
+
   async function runPluginCommand(name, args = '') {
     toast('运行 /' + name + '…');
     const res = await window.nailong.runPluginCommand(name, args);
@@ -1332,11 +1442,20 @@
       data.items.forEach((it) => {
         const d = document.createElement('div');
         d.className = 'panel-item';
+        const main = document.createElement('div');
+        main.className = 'pi-main';
         const b = document.createElement('b');
         b.textContent = it.title || '';
         const p = document.createElement('p');
         p.textContent = it.subtitle || '';
-        d.append(b, p);
+        main.append(b, p);
+        d.appendChild(main);
+        if (it.action && it.action.type === 'open' && it.action.url) {
+          const btn = document.createElement('button');
+          btn.textContent = '打开';
+          btn.onclick = () => window.nailong.openExternal(it.action.url);
+          d.appendChild(btn);
+        }
         box.appendChild(d);
       });
     } else if (panel.template === 'form') {
@@ -1348,6 +1467,9 @@
   }
 
   $('#plugins-btn').onclick = openPlugins;
+  document.querySelectorAll('.ptab').forEach((b) => {
+    b.onclick = () => { pluginTab = b.dataset.tab; renderPlugins(); };
+  });
   $('#plugins-close').onclick = () => $('#plugins-modal').classList.remove('open');
   $('#panel-close').onclick = () => $('#panel-modal').classList.remove('open');
   if (window.nailong.onPluginNotify) {
