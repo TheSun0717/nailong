@@ -1,20 +1,21 @@
 {
   "app": {
-    "version": "1.7.1",
+    "version": "1.8.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.7.1/nailong-Setup-1.7.1.exe",
-    "sha256": "27c3088bfa605bbcaa232ad3e03ba7a8a6b6de682b5a48c105154c55a2c06330",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.8.0/nailong-Setup-1.8.0.exe",
+    "sha256": "0ce74105b621f87e332fd1920f15d84f9af7462f5d50ac4883639e17a8ccab43",
     "notes": {
-      "summary": "插件更新失败自动回滚。",
+      "summary": "应用内小红书搜索。",
       "items": [
-        "插件更新保留 .bak；加载失败时自动恢复上一版并重试一次",
-        "清理失败版本已注册的命令，避免残留",
-        "回滚逻辑加入 tests/plugins.test.js",
-        "主界面按钮保留为宿主快捷方式"
+        "内置 Chromium + 独立持久会话，不依赖 Chrome/OpenCLI",
+        "先授权；同意后打开小红书窗口，登录一次",
+        "自动检测登录/安全验证，提取标题/作者/点赞/链接",
+        "新增 /xhs 命令；设置里可改采集授权",
+        "能力工坊支持小红书搜索插件"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.7.1/nailong-Setup-1.7.1.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.8.0/nailong-Setup-1.8.0.exe"
     ]
   },
   "plugins": [
