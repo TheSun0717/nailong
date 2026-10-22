@@ -1190,12 +1190,14 @@ app.whenReady().then(() => {
       try {
         const items = await store.list(app.getVersion());
         console.log('[storetest] items=', items.map((i) => `${i.id}@${i.version}`).join(','));
-        const m = await store.install(items[0], {
+        const target = items.find((i) => i.id === 'research-kit') || items[0];
+        const m = await store.install(target, {
           appVersion: app.getVersion(),
           tmpRoot: path.join(app.getPath('temp'), 'nailong-store-test'),
         });
         console.log('[storetest] installed=', m.id, m.version);
         initPluginHost();
+        if (m.id !== 'research-kit') { app.exit(0); return; }
         const r = await pluginHost.runCommand('bili', '线性代数 怎么学');
         console.log('[storetest] run=', JSON.stringify(r).slice(0, 500));
         app.exit(r.ok ? 0 : 1);

@@ -18,6 +18,97 @@
       "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.0/nailong-Setup-2.0.0.exe"
     ]
   },
-  "plugins": [],
+  "plugins": [
+    {
+      "id": "hello-plugin",
+      "name": "示例插件",
+      "version": "1.0.0",
+      "minAppVersion": "1.1.1",
+      "description": "演示插件能力：注册命令、说话、弹面板。",
+      "intro": {
+        "what": "它给奶龙加两个小命令，一个是打招呼，一个是看它能做什么。",
+        "how": "点聊天窗右上角的拼图按钮，找到「示例插件」，再点「运行」；或者在输入框里打 /hello。",
+        "whatHappens": "奶龙会说话，还会弹出一个分步说明卡片。",
+        "ifFails": "在插件列表里把它关掉再打开；还不行就点「问题反馈」告诉作者。"
+      },
+      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.0/hello-plugin-1.0.0.zip",
+      "sha256": "15b33001e8f2205b549a1672db1ab4bbfdf333c5a607e6def18e1499c09dda03",
+      "mirrors": [
+        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.0/hello-plugin-1.0.0.zip"
+      ]
+    },
+    {
+      "id": "mistake-book",
+      "name": "错题本",
+      "version": "1.3.0",
+      "minAppVersion": "1.15.0",
+      "description": "把错题收进来，随时翻看复习。",
+      "intro": {
+        "what": "它帮你把做错或没弄懂的题收进一个本子里，之后随时翻看。",
+        "how": "输入 /wrong-add 题目或错因；输入 /wrong 查看；/wrong-clear 清空。",
+        "whatHappens": "题目会按时间倒序保存在本机，/wrong 会列出来。",
+        "ifFails": "检查命令后面有没有写内容；数据只在本机，换电脑需要重新添加。"
+      },
+      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.0/mistake-book-1.3.0.zip",
+      "sha256": "adb9a991ea68162b161d6f94f8639ba017de85d38a3bb1c676fbfa4c3c18b2bf",
+      "mirrors": [
+        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.0/mistake-book-1.3.0.zip"
+      ]
+    },
+    {
+      "id": "research-kit",
+      "name": "资料搜索",
+      "version": "1.1.0",
+      "minAppVersion": "1.8.0",
+      "description": "一站搜索 B 站和小红书的公开学习资料。",
+      "intro": {
+        "what": "它让奶龙会搜 B 站和小红书：找公开课、找笔记、找学长学姐的经验。",
+        "how": "直接说「帮我搜一下北邮人工智能」或者输入 /bili 关键词、/xhs 关键词；第一次用小红书会先问你允不允许采集。",
+        "whatHappens": "奶龙会列出视频或笔记的标题、作者和热度，点「打开」就能看。",
+        "ifFails": "检查网络；小红书需要在内置窗口登录一次；被安全验证时按页面提示操作后再试。"
+      },
+      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.0/research-kit-1.1.0.zip",
+      "sha256": "d707233ed197e468d8017f3ebf50bcb8115f42b1eb09693d016c656242579d21",
+      "mirrors": [
+        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.0/research-kit-1.1.0.zip"
+      ]
+    },
+    {
+      "id": "study-kit",
+      "name": "学习资料助手",
+      "version": "1.0.0",
+      "minAppVersion": "1.6.0",
+      "description": "画像 + 知识库 + 学习路径，插件版。",
+      "intro": {
+        "what": "它帮你想清楚一门课怎么学：先看你自己的资料，再排出每周计划。",
+        "how": "在输入框输入 /study 加上你的问题，比如 /study 人工智能数学方法怎么学；也可以 /kb-stats 看资料库。",
+        "whatHappens": "奶龙会给你一份学习计划；/kb-stats 会列出你导入的资料。",
+        "ifFails": "先在设置里填画像、导入资料；还不行就点问题反馈。"
+      },
+      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.0/study-kit-1.0.0.zip",
+      "sha256": "0536d10961d4d558fec036b6b16daa5a8db2372d5a98b1691ddc09235a12a142",
+      "mirrors": [
+        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.0/study-kit-1.0.0.zip"
+      ]
+    },
+    {
+      "id": "teach-studio",
+      "name": "讲解工坊",
+      "version": "1.1.0",
+      "minAppVersion": "1.6.0",
+      "description": "把知识点做成交互讲解页和讲解视频，插件版。",
+      "intro": {
+        "what": "它能把一个知识点或一道题变成可以点的讲解页，或者一段讲解视频。",
+        "how": "输入 /explain 加知识点生成讲解页；输入 /video 加知识点生成视频（视频要等几分钟）。",
+        "whatHappens": "讲解页会在独立窗口打开；视频会存到本机并告诉你路径。",
+        "ifFails": "讲解页需要先配置大模型 Key；视频还需要 VoiceStudio 和 ffmpeg。失败时按提示检查。"
+      },
+      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.0/teach-studio-1.1.0.zip",
+      "sha256": "fd4ef7f5a49ecf49696661d10b8900411b54814d6dff442e591fd669ea9b1de1",
+      "mirrors": [
+        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.0/teach-studio-1.1.0.zip"
+      ]
+    }
+  ],
   "catalogVersion": "2026-10-22"
 }
