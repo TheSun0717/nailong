@@ -1,21 +1,19 @@
 {
   "app": {
-    "version": "1.17.0",
+    "version": "1.17.1",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.17.0/nailong-Setup-1.17.0.exe",
-    "sha256": "7211de4d435baccab115fe69c4f9d0d86f751be68434fe09b76bfc7d38ebd649",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.17.1/nailong-Setup-1.17.1.exe",
+    "sha256": "de622ee77a69d72b710605bca0144d8b8f8e43a038ba4f2d28a66898d3c7cd5b",
     "notes": {
-      "summary": "让小学生也能看懂。",
+      "summary": "视频图示兜底与配音稳定性。",
       "items": [
-        "讲解卡新增一句话直觉 + 生活比喻",
-        "错题自动收录（校验失败/双解不一致）",
-        "能力图谱缺失依赖一键补装",
-        "解题卡缓存升级 v2",
-        "讲解页 → 视频全链路测试"
+        "分镜无图示时自动用要点生成流程图",
+        "提示词要求至少 3 镜带图",
+        "TTS 180 秒超时与一次重试"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.17.0/nailong-Setup-1.17.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.17.1/nailong-Setup-1.17.1.exe"
     ]
   },
   "plugins": [],
