@@ -1,21 +1,21 @@
 {
   "app": {
-    "version": "2.0.0",
+    "version": "2.0.1",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.0/nailong-Setup-2.0.0.exe",
-    "sha256": "fe7619e10cb26171a7719d7421fedc79d155738e044fa9448ea2ce5b9ee5832d",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.1/nailong-Setup-2.0.1.exe",
+    "sha256": "5b2e5b96e97bb8259a9d57c23183168d1e9c8c9ea4152a5ee5ac0106387c7cf7",
     "notes": {
-      "summary": "奶龙 2.0：升级后第一次打开，先看一段 27 秒进化动画。",
+      "summary": "修好自动更新：点一下，装完自己重开，桌面图标打开就是最新版。",
       "items": [
-        "进化动画：升级后首启播放一次，可跳过",
-        "几何题强制配图（三角形/受力图），解题页更好懂",
-        "旧解题卡自动失效重做，图示更准",
-        "学习助手、讲解工坊、资料搜索、错题本全部插件化",
-        "主程序与插件都能在线更新"
+        "自动更新改为原地安装，装完自动重启新版",
+        "桌面快捷方式自动指向新版本",
+        "启动 8 秒后自动检查更新，之后每 6 小时再查一次",
+        "发现新版本时桌宠会先提醒（气泡关掉就不打扰）",
+        "补丁版本不再重播进化动画"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.0/nailong-Setup-2.0.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.1/nailong-Setup-2.0.1.exe"
     ]
   },
   "plugins": [

@@ -250,9 +250,20 @@ function createEvolutionWindow() {
   return win;
 }
 
+// 动画只对应某个大版本（data/evolution.json 的 version，如 2.0）；2.0.1 这类补丁版不重播
+function evolutionMatchesApp() {
+  try {
+    const j = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'evolution.json'), 'utf8'));
+    const v = String(j.version || '');
+    return !!v && app.getVersion().startsWith(v);
+  } catch {
+    return false;
+  }
+}
+
 function maybeShowEvolution() {
   if (config.lastSeenVersion === app.getVersion()) return;
-  if (!createEvolutionWindow()) {
+  if (!evolutionMatchesApp() || !createEvolutionWindow()) {
     config.lastSeenVersion = app.getVersion();
     saveConfig();
   }
@@ -408,6 +419,93 @@ function toggleAutoLaunch(on) {
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: on });
 }
 
+// ---------- 自动更新安装 ----------
+// PowerShell 脚本（纯 ASCII，路径通过参数传入，避免中文编码问题）：
+// 等旧进程退出 → 用 /D=<当前安装目录> 原地静默安装 → 失败再按默认目录试一次 → 修正桌面快捷方式 → 启动新版
+const PS_INSTALL = [
+  "$ErrorActionPreference = 'SilentlyContinue'",
+  'Start-Sleep -Seconds 2',
+  '$installer = $args[0]',
+  '$exePath = $args[1]',
+  '$installDir = $args[2]',
+  '$procName = if ($exePath) { [IO.Path]::GetFileNameWithoutExtension($exePath) } else { "" }',
+  'for ($i = 0; $i -lt 60; $i++) {',
+  '  if (-not $procName -or -not (Get-Process -Name $procName)) { break }',
+  '  Start-Sleep -Milliseconds 500',
+  '}',
+  'function Invoke-Installer([string]$d) {',
+  '  if ($d) { return (Start-Process -FilePath $installer -ArgumentList "/S", ("/D=" + $d) -Wait -PassThru).ExitCode }',
+  '  return (Start-Process -FilePath $installer -ArgumentList "/S" -Wait -PassThru).ExitCode',
+  '}',
+  '$done = $false',
+  '# NSIS /D= cannot be quoted; if path has spaces, fall back to default install dir',
+  'if ($installDir -and ($installDir -notmatch " ")) {',
+  '  $code = Invoke-Installer $installDir',
+  '  if ($code -eq 0 -and (Test-Path $exePath)) { $done = $true }',
+  '}',
+  'if (-not $done) {',
+  '  Invoke-Installer "" | Out-Null',
+  '  $altRoot = Join-Path $env:LOCALAPPDATA "Programs"',
+  '  $found = Get-ChildItem $altRoot -Recurse -Filter *.exe -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "Uninstall*" -and $_.Length -gt 4000000 } | Sort-Object LastWriteTime -Descending | Select-Object -First 1',
+  '  if ($found) { $exePath = $found.FullName }',
+  '}',
+  'Start-Sleep -Seconds 1',
+  'if (Test-Path $exePath) {',
+  '  try {',
+  '    $ws = New-Object -ComObject WScript.Shell',
+  '    $lnkPath = Join-Path ([Environment]::GetFolderPath("Desktop")) ($procName + ".lnk")',
+  '    $lnk = $ws.CreateShortcut($lnkPath)',
+  '    $lnk.TargetPath = $exePath',
+  '    $lnk.WorkingDirectory = Split-Path $exePath',
+  '    $lnk.IconLocation = $exePath + ",0"',
+  '    $lnk.Save()',
+  '  } catch {}',
+  '  Start-Process -FilePath $exePath',
+  '}',
+];
+
+function applyUpdate(file, { trusted = false } = {}) {
+  const target = path.resolve(String(file || ''));
+  const dir = path.join(app.getPath('temp'), 'nailong-update');
+  if (!trusted && !target.startsWith(path.resolve(dir) + path.sep)) return { ok: false, error: '非法路径' };
+  if (!fs.existsSync(target)) return { ok: false, error: '安装包不存在' };
+
+  fs.mkdirSync(dir, { recursive: true });
+  const ps1 = path.join(dir, 'install-update.ps1');
+  fs.writeFileSync(ps1, PS_INSTALL.join('\r\n'), 'utf8');
+  const exePath = app.isPackaged ? process.execPath : '';
+  const installDir = app.isPackaged ? path.dirname(process.execPath) : '';
+  try {
+    spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps1, target, exePath, installDir], {
+      detached: true, stdio: 'ignore', windowsHide: true,
+    }).unref();
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+  setTimeout(() => app.quit(), 800);
+  return { ok: true, exePath, installDir };
+}
+
+// 启动后查一次、之后每 6 小时查一次；有新版本先用桌宠气泡提醒
+let updateNotice = null;
+function startUpdateWatcher() {
+  const run = async () => {
+    try {
+      const r = await updater.check(app.getVersion());
+      if (!r.ok || !r.hasUpdate) return;
+      updateNotice = r.app;
+      if (chatWin && !chatWin.isDestroyed()) {
+        chatWin.webContents.send('plugin-notify', `发现新版本 ${r.app.version}，可在设置里更新`);
+      } else if (config.petBubble !== false && petWin && !petWin.isDestroyed()) {
+        petWin.webContents.send('pet-say', `奶龙 ${r.app.version} 可以更新啦，点我打开聊天`);
+      }
+    } catch { /* 静默 */ }
+  };
+  setTimeout(run, 8000);
+  const timer = setInterval(run, 6 * 3600 * 1000);
+  if (timer.unref) timer.unref();
+}
+
 // ---------- IPC ----------
 function registerIpc() {
   ipcMain.handle('asset-url', (_e, rel) => assetUrl(rel));
@@ -497,30 +595,7 @@ function registerIpc() {
       return { ok: false, error: e.message };
     }
   });
-  ipcMain.handle('update-install', (_e, file) => {
-    const target = path.resolve(String(file || ''));
-    if (!target.startsWith(path.resolve(updateDir) + path.sep)) return { ok: false, error: '非法路径' };
-    if (!fs.existsSync(target)) return { ok: false, error: '安装包不存在' };
-    // 先退出主程序，再由 PowerShell 静默安装；首次失败时自动再跑一次（NSIS 原地覆盖的已知问题）
-    const ps1 = path.join(updateDir, 'install-update.ps1');
-    fs.writeFileSync(ps1, [
-      'Start-Sleep -Seconds 2',
-      'Start-Process -FilePath $args[0] -ArgumentList "/S" -Wait',
-      '$dir = Join-Path $env:LOCALAPPDATA "Programs\\nailong"',
-      '$exe = Get-ChildItem $dir -Filter *.exe | Where-Object { $_.Name -notlike "Uninstall*" } | Select-Object -First 1',
-      'if (-not $exe) { Start-Process -FilePath $args[0] -ArgumentList "/S" -Wait; $exe = Get-ChildItem $dir -Filter *.exe | Where-Object { $_.Name -notlike "Uninstall*" } | Select-Object -First 1 }',
-      'if ($exe) { Start-Process -FilePath $exe.FullName }',
-    ].join('\r\n'), 'utf8');
-    try {
-      spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps1, target], {
-        detached: true, stdio: 'ignore', windowsHide: true,
-      }).unref();
-    } catch (e) {
-      return { ok: false, error: e.message };
-    }
-    setTimeout(() => app.quit(), 800);
-    return { ok: true };
-  });
+  ipcMain.handle('update-install', (_e, file) => applyUpdate(file));
 
   ipcMain.handle('artifacts-list', () => artifacts.list(explainDir, videoDir));
   ipcMain.handle('artifact-open', (_e, file) => {
@@ -1279,11 +1354,37 @@ app.whenReady().then(() => {
     });
     return;
   }
+  if (process.argv.includes('--update-install')) {
+    const i = process.argv.indexOf('--update-install');
+    const r = applyUpdate(process.argv[i + 1], { trusted: true });
+    console.log('[update-install]', JSON.stringify(r));
+    if (!r.ok) app.exit(1);
+    return;
+  }
+  if (process.argv.includes('--apply-update')) {
+    (async () => {
+      try {
+        const r = await updater.check(app.getVersion());
+        console.log('[apply-update] current=', app.getVersion(), 'latest=', r.latest, 'hasUpdate=', r.hasUpdate);
+        if (!r.ok || !r.hasUpdate) { app.exit(0); return; }
+        const dir = path.join(app.getPath('temp'), 'nailong-update');
+        const dest = path.join(dir, `nailong-Setup-${r.app.version}.exe`);
+        await updater.download([r.app.url].concat(r.app.mirrors || []), dest, r.app.sha256, (a, b) => {
+          if (b) process.stdout.write(`\r[apply-update] ${Math.round((a / b) * 100)}%   `);
+        });
+        console.log('\n[apply-update] downloaded', dest);
+        const res = applyUpdate(dest, { trusted: true });
+        console.log('[apply-update] install', JSON.stringify(res));
+      } catch (e) { console.error('[apply-update] ERR', e.message); app.exit(1); }
+    })();
+    return;
+  }
   if (app.isPackaged && config.openAtLogin) app.setLoginItemSettings({ openAtLogin: true });
   // 全局快捷键：Ctrl+Alt+D 显示/隐藏奶龙
   const ok = globalShortcut.register('CommandOrControl+Alt+D', togglePet);
   if (!ok) console.warn('[奶龙] 快捷键 Ctrl+Alt+D 注册失败（可能被其他程序占用）');
   maybeShowEvolution();
+  startUpdateWatcher();
 });
 
 // 常驻托盘，关闭所有窗口不退出（靠托盘「退出奶龙」退出）

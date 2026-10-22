@@ -183,8 +183,10 @@ data/video|explain/      产物
 
 - 通道：v1 仅 stable；预留 beta。
 - 主程序：完整 NSIS 包，不做差量；保留上一版安装包用于回滚。
-- 检查：启动 5 秒后、每 6 小时、设置里手动。
-- 流程：检查 → 弹更新日志（文字 + 可选预渲染动画）→ 用户点下载 → 进度 → 重启安装。
+- 检查：启动 8 秒后、每 6 小时（主进程 `startUpdateWatcher`，发现新版用桌宠气泡/聊天通知）、设置里手动。
+- 流程：检查 → 弹更新日志（文字 + 可选预渲染动画）→ 用户点一次「更新」→ 下载校验 → 自动退出 → 静默安装 → 自动启动新版。
+- 安装细节（`main.js` 的 `applyUpdate`）：PowerShell 脚本先用 `/D=<当前安装目录>` 原地覆盖（保证桌面快捷方式仍然有效），失败再按 NSIS 默认目录装一次；装完修正桌面快捷方式并用新 exe 启动。路径带空格时跳过 `/D=`（NSIS 不接受引号）。
+- 自检：`--updatetest`（下载 + SHA）、`--update-install <exe>`（安装 + 重启 + 快捷方式）、`--apply-update`（检查 + 下载 + 安装全链路）。
 - 进化动画：**发版时预渲染** 20–30 秒，随包分发；首启播放，可跳过；失败降级文字。
   - 文案在 `data/evolution.json`（version / kicker / scenes[icon,title,bullets,narration]），改文案不用改代码。
   - 渲染：`electron . --evolution`（或 `--evolution <路径>`），复用视频流水线（VoiceStudio 配音 + 逐帧 + ffmpeg），产物默认 `assets/evolution.mp4`，随 `extraResources` 进安装包。
