@@ -102,6 +102,37 @@ ${JSON.stringify({ title: verifiedSpec.title, steps: verifiedSpec.steps, answer:
   return { title: String(data.title || topic).slice(0, 80), subject: String(data.subject || '知识点'), scenes };
 }
 
+// 用已验证解题卡直接生成分镜：真实图示、0 额外模型调用
+function scenesFromSpec(spec) {
+  const scenes = [];
+  const firstVisual = (spec.steps && spec.steps[0] && spec.steps[0].visual) || { type: 'none' };
+  scenes.push({
+    title: spec.title || '讲解',
+    bullets: [spec.intuition || spec.question || ''].filter(Boolean).slice(0, 2),
+    narration: [spec.intuition, spec.analogy].filter(Boolean).join('。') || spec.question || spec.title || '',
+    visual: firstVisual,
+  });
+  for (const st of (spec.steps || []).slice(0, 6)) {
+    const sentences = String(st.body || '').split(/[。；;!?！？]/).map((x) => x.trim()).filter(Boolean);
+    const bullets = [st.title, ...sentences].filter(Boolean).slice(0, 3).map((x) => String(x).slice(0, 24));
+    scenes.push({
+      title: st.title || '步骤',
+      bullets,
+      narration: [st.title, st.body].filter(Boolean).join('。').slice(0, 400),
+      visual: st.visual || { type: 'none' },
+    });
+  }
+  if (spec.answer) {
+    scenes.push({
+      title: '答案',
+      bullets: [String(spec.answer).slice(0, 24)],
+      narration: `所以答案是 ${spec.answer}。${spec.checkpoint || ''}`,
+      visual: { type: 'none' },
+    });
+  }
+  return scenes.slice(0, 8);
+}
+
 function svgForVisual(v) {
   const type = (v && v.type) || 'none';
   const d = (v && v.data) || {};
@@ -341,7 +372,9 @@ async function generate(topic, config, workDir, onProgress = () => {}, verifiedS
   fs.mkdirSync(dir, { recursive: true });
 
   onProgress({ stage: 'script', pct: 4, msg: '正在写分镜脚本…' });
-  const data = await storyboard(topic, config, verifiedSpec);
+  const data = verifiedSpec
+    ? { title: verifiedSpec.title || topic, subject: verifiedSpec.subject || '学习', scenes: scenesFromSpec(verifiedSpec) }
+    : await storyboard(topic, config);
   fs.writeFileSync(path.join(dir, 'storyboard.json'), JSON.stringify(data, null, 2), 'utf8');
 
   const durations = [];
@@ -381,4 +414,4 @@ async function generate(topic, config, workDir, onProgress = () => {}, verifiedS
   return { ok: true, dir, video: outFile, title: data.title, frames: totalFrames, duration: Math.round(totalMs / 1000) };
 }
 
-module.exports = { generate, finish, storyboard, buildHtml, ttsReady, FPS };
+module.exports = { generate, finish, storyboard, buildHtml, scenesFromSpec, ttsReady, FPS };
