@@ -1,19 +1,19 @@
 {
   "app": {
-    "version": "1.18.0",
+    "version": "1.18.1",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.18.0/nailong-Setup-1.18.0.exe",
-    "sha256": "502126ec2b3debb291b4d86eaf65a322ee2358eedf487557751b3adb5c1485e0",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.18.1/nailong-Setup-1.18.1.exe",
+    "sha256": "6e7587a9e33412f4e8e3dcf9c79c744d7cbfbc755658e888614b5ae4b7289ab1",
     "notes": {
-      "summary": "物理受力图与错题复习。",
+      "summary": "视频直接用已验证解题卡。",
       "items": [
-        "新增 vectors 图示（力/速度向量）",
-        "错题本：随机重做、错因统计、序号移除",
-        "视频无图示时自动流程图兜底"
+        "有解题卡时视频不再调用分镜模型",
+        "真实三角形/坐标图，0 额外 token",
+        "无解题卡时保持分镜 + 流程图兜底"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.18.0/nailong-Setup-1.18.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.18.1/nailong-Setup-1.18.1.exe"
     ]
   },
   "plugins": [],
