@@ -18,7 +18,7 @@ JSON 结构：
 - 每个镜头 2 到 4 条 bullet，每条不超过 20 个汉字。
 - narration 是可直接朗读的口语中文，40 到 90 字；假设听众是小学生，多用生活比喻，少用术语（术语第一次出现要用大白话解释）；不要出现 Markdown、序号、括号符号、公式符号；数学表达式用中文念法。
 - 内容要准确、具体，不写空话。
-- 每个镜头尽量带 visual：triangle（三角形，data 用 a/b/c/aLabel/bLabel/cLabel）、axes（坐标轴，data 用 points 数组）、flow（流程，data 用 nodes 数组）、none（不需要图）。
+- visual 不能全部是 none：至少 3 个镜头必须有图示；数学/几何题优先 triangle/axes，步骤类用 flow；triangle 的 data 用 a/b/c/aLabel/bLabel/cLabel，axes 用 points 数组，flow 用 nodes 数组。
 - 只输出 JSON。`;
 
 function extractJson(raw) {
@@ -64,6 +64,7 @@ async function synthesize(text, outFile) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: 'omnivoice', input: text, voice: 'default', response_format: 'wav' }),
+    signal: AbortSignal.timeout(180000),
   });
   if (!res.ok) throw new Error(`语音合成失败（${res.status}）`);
   fs.writeFileSync(outFile, Buffer.from(await res.arrayBuffer()));
@@ -155,7 +156,11 @@ function buildHtml(data, timeline, totalMs) {
       <h1>${esc(s.title)}</h1>
       <div class="cols">
         <div class="txt"><ul>${s.bullets.map((b) => `<li><span class="dot"></span><span>${esc(b)}</span></li>`).join('')}</ul></div>
-        ${svgForVisual(s.visual) ? `<div class="vis">${svgForVisual(s.visual)}</div>` : ''}
+        ${(() => {
+          let svg = svgForVisual(s.visual);
+          if (!svg && s.bullets && s.bullets.length >= 2) svg = svgForVisual({ type: 'flow', data: { nodes: s.bullets } });
+          return svg ? `<div class="vis">${svg}</div>` : '';
+        })()}
       </div>
       <p class="sub">${esc(s.narration)}</p>
     </section>`).join('');
@@ -330,7 +335,14 @@ async function generate(topic, config, workDir, onProgress = () => {}, verifiedS
     onProgress({ stage: 'tts', pct: 8 + Math.round((i / data.scenes.length) * 42), msg: `配音 ${i + 1}/${data.scenes.length}` });
     const file = path.join(dir, `s${i}.wav`);
     if (s.narration) {
-      await synthesize(s.narration, file);
+      let ok = false;
+      for (let attempt = 0; attempt < 2 && !ok; attempt++) {
+        try { await synthesize(s.narration, file); ok = true; }
+        catch (e) {
+          if (attempt === 1) throw e;
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+      }
       durations.push(await audioDuration(file));
     } else {
       durations.push(0);

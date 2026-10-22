@@ -65,6 +65,7 @@ async function request(question, config, stream, systemPrompt, temperature, json
       Authorization: `Bearer ${config.apiKey}`,
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(stream ? 600000 : 300000),
   });
   if (!res.ok) throw new Error(`DeepSeek ${res.status}`);
   return res;
@@ -136,6 +137,7 @@ async function streamChat(messages, config, onDelta, systemPrompt, temperature) 
       temperature: typeof temperature === 'number' ? temperature : 1.0,
       stream: true,
     }),
+    signal: AbortSignal.timeout(600000),
   });
   if (!res.ok) throw new Error(`DeepSeek ${res.status}`);
   if (!res.body || !res.body.getReader) {
@@ -170,6 +172,7 @@ async function askWithImage(prompt, config, systemPrompt, imageDataUrl, temperat
       temperature: typeof temperature === 'number' ? temperature : 0.4,
       stream: false,
     }),
+    signal: AbortSignal.timeout(300000),
   });
   if (!res.ok) throw new Error(`Vision ${res.status}`);
   const data = await res.json();
