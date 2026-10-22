@@ -1,10 +1,19 @@
 // 错题本（第一方插件）：本地保存、列表、清空。
 module.exports.register = (host) => {
+  const DAY = 24 * 3600 * 1000;
+  const INTERVALS = [1, 3, 7, 15];
+  const metaMap = () => host.settings.get('meta') || {};
+  const saveMeta = (m) => host.settings.set('meta', m);
   host.chat.command('wrong-add', async (args) => {
     const text = String(args || '').trim();
     if (!text) throw new Error('请在 /wrong-add 后面写题目或错因');
     await host.mistakes.add(text, []);
     const items = await host.mistakes.list();
+    if (items[0]) {
+      const m = metaMap();
+      m[items[0].id] = { stage: 0, due: Date.now() };
+      saveMeta(m);
+    }
     return { text: `已加入错题本（共 ${items.length} 条）` };
   }, '把题目或错因加入错题本');
 
@@ -26,14 +35,30 @@ module.exports.register = (host) => {
   host.chat.command('wrong-review', async () => {
     const items = (await host.mistakes.list()) || [];
     if (!items.length) return { text: '错题本是空的，用 /wrong-add 加一条' };
-    const it = items[Math.floor(Math.random() * items.length)];
+    const meta = metaMap();
+    const due = items.filter((x) => !meta[x.id] || (meta[x.id].due || 0) <= Date.now());
+    const pool = due.length ? due : items;
+    const it = pool[Math.floor(Math.random() * pool.length)];
+    const m = metaMap();
+    const cur = m[it.id] || { stage: 0 };
+    const stage = Math.min((cur.stage || 0) + 1, INTERVALS.length - 1);
+    m[it.id] = { stage, due: Date.now() + INTERVALS[stage - 1] * DAY };
+    saveMeta(m);
     const issues = (it.issues || []).length ? '\n上次的问题：' + it.issues.join('；') : '';
-    return { text: `来，重做这道题：
-
-${it.text}${issues}
-
-做完后再用 /wrong-add 记录新的错因。` };
+    const next = new Date(m[it.id].due).toLocaleDateString('zh-CN');
+    return { text: `来，重做这道题：\n\n${it.text}${issues}\n\n下次复习：${next}（做完用 /wrong-add 记录新错因）` };
   }, '随机抽一道错题复习');
+
+  host.chat.command('wrong-due', async () => {
+    const items = (await host.mistakes.list()) || [];
+    const meta = metaMap();
+    const due = items.filter((x) => !meta[x.id] || (meta[x.id].due || 0) <= Date.now());
+    const panel = host.ui.panel('list', {
+      title: `待复习（${due.length}）`,
+      items: due.slice(0, 20).map((x) => ({ title: x.text.slice(0, 40), subtitle: '今天到期' })),
+    });
+    return { text: due.length ? `今天有 ${due.length} 道错题到期` : '今天没有到期的错题', panel: due.length ? panel : undefined };
+  }, '查看今天到期的错题');
 
   host.chat.command('wrong-stats', async () => {
     const items = (await host.mistakes.list()) || [];

@@ -3,6 +3,9 @@ const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 const crypto = require('crypto');
+
+let nativeImage = null;
+try { nativeImage = require('electron').nativeImage; } catch (_) {}
 const ai = require('../ai');
 
 const SOLVE_SYSTEM = `你是严谨的学科老师。解出题目并输出一张「解题卡」JSON，只输出 JSON，不要 Markdown 围栏。
@@ -96,6 +99,16 @@ function normalizeSpec(spec) {
 }
 
 function imageData(file) {
+  try {
+    if (nativeImage) {
+      const img = nativeImage.createFromPath(file);
+      if (!img.isEmpty()) {
+        const size = img.getSize();
+        const resized = size.width > 900 ? img.resize({ width: 900 }) : img;
+        return 'data:image/jpeg;base64,' + resized.toJPEG(82).toString('base64');
+      }
+    }
+  } catch (_) {}
   const buf = fs.readFileSync(file);
   const ext = path.extname(file).toLowerCase();
   const mime = ext === '.png' ? 'image/png' : (ext === '.webp' ? 'image/webp' : 'image/jpeg');
@@ -199,7 +212,7 @@ async function verify(spec, config) {
   }
 }
 
-function renderHtml(spec, issues = [], checkNote = '') {
+function renderHtml(spec, issues = [], checkNote = '', originalImage = '') {
   const safeSpec = JSON.stringify(spec).replace(/</g, '\\u003c');
   const safeIssues = JSON.stringify(issues).replace(/</g, '\\u003c');
   return `<!DOCTYPE html>
@@ -270,6 +283,7 @@ function renderHtml(spec, issues = [], checkNote = '') {
 <script>
   const SPEC = ${safeSpec};
   const ISSUES = ${safeIssues};
+  const ORIGINAL = ${safeOriginal};
   const steps = SPEC.steps.slice();
   if (SPEC.answer) steps.push({ title: '答案', body: SPEC.checkpoint || '对照上面的推导，自己再复述一遍。', formula: '', visual: { type: 'none' }, answer: SPEC.answer });
   let i = 0;
@@ -393,6 +407,11 @@ function renderHtml(spec, issues = [], checkNote = '') {
     else if (type === 'circle') html = svgCircle(v.data || {});
     else if (type === 'numberline') html = svgNumberline(v.data || {});
     else if (type === 'vectors') html = svgVectors(v.data || {});
+    if (!html && ORIGINAL) {
+      html = '<div style="text-align:center">' +
+        '<img src="' + ORIGINAL + '" style="max-width:100%;max-height:400px;border-radius:12px;box-shadow:0 4px 16px rgba(58,42,26,.12)">' +
+        '<div style="font-size:12px;color:#8A7860;margin-top:10px">原题图</div></div>';
+    }
     if (!html) {
       const st = steps[i] || {};
       html = '<div style="font-size:22px;line-height:1.7;text-align:center;padding:20px">' +
@@ -511,7 +530,7 @@ async function generate(topic, config, imagePath, opts = {}) {
     const hit = readCache(opts.cacheDir, key);
     if (hit) {
       emit(100, '命中缓存');
-      return renderHtml(hit.spec, hit.issues || [], (hit.note || '') + ' · 命中缓存');
+      return renderHtml(hit.spec, hit.issues || [], (hit.note || '') + ' · 命中缓存', imagePath ? imageData(imagePath) : '');
     }
   }
   let spec = augmentChecks(await solve(promptText, config, imagePath));
@@ -548,7 +567,7 @@ async function generate(topic, config, imagePath, opts = {}) {
     try { opts.onIssues({ question: promptText, issues, spec: verified.spec }); } catch (_) {}
   }
   if (opts.cacheDir) writeCache(opts.cacheDir, key, { spec: verified.spec, issues, note });
-  return renderHtml(verified.spec, issues, note);
+  return renderHtml(verified.spec, issues, note, imagePath ? imageData(imagePath) : '');
 }
 
 module.exports = { generate, solve, verify, renderHtml, findCachedSpec };
