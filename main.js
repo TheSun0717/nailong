@@ -172,6 +172,8 @@ const DEFAULT_CONFIG = {
   petScale: 1, // 桌宠缩放 0.5 - 2.0
   petCanvas: 480, // 桌宠窗口画布大小（手动可调，不随缩放变化）
   petBubble: true, // 自动气泡开关
+  ttsVoice: 'default', // 配音音色（VoiceStudio 的 voice id / profile id）
+  ttsStyle: '可爱、奶声奶气、活泼的小孩声音，语速稍慢', // 声音风格描述
   xhsConsent: '', // 小红书采集授权：'' 每次询问 / 'yes' / 'no'
   profile: { level: '', region: '', school: '', major: '', grade: '' },
 };
@@ -1303,6 +1305,38 @@ app.whenReady().then(() => {
       } catch (e) {
         console.error('[jobtest] ERR', e.message);
         app.exit(2);
+      }
+    })();
+    return;
+  }
+  if (process.argv.includes('--ttstest')) {
+    const i = process.argv.indexOf('--ttstest');
+    const text = process.argv[i + 1] || '你好呀，我是奶龙。';
+    (async () => {
+      try {
+        const out = path.join(app.getPath('temp'), 'nailong-tts-test.wav');
+        await video.synthesize(text, out, { voice: config.ttsVoice, instructions: config.ttsStyle });
+        const dur = await video.audioDuration(out);
+        console.log('[ttstest] OK', out, dur.toFixed(2) + 's');
+        app.exit(0);
+      } catch (e) {
+        console.error('[ttstest] ERR', e.message);
+        app.exit(1);
+      }
+    })();
+    return;
+  }
+  if (process.argv.includes('--solvetest')) {
+    const i = process.argv.indexOf('--solvetest');
+    const q = process.argv[i + 1] || '勾股定理';
+    (async () => {
+      try {
+        const spec = await teach.solve(q, config, null);
+        console.log('[solvetest] OK', JSON.stringify({ title: spec.title, steps: spec.steps.length, answer: spec.answer }));
+        app.exit(0);
+      } catch (e) {
+        console.error('[solvetest] ERR', e.message);
+        app.exit(1);
       }
     })();
     return;

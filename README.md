@@ -47,7 +47,7 @@
 |---|---|
 | 文本抽取 | 已随项目安装：`pdf-parse`、`mammoth` |
 | 图片 OCR | 系统 Python 3 + `pip install rapidocr_onnxruntime` |
-| 视频配音 | VoiceStudio（本机 3900 端口，OmniVoice） |
+| 视频配音 | VoiceStudio（本机 3900 端口，OmniVoice）；音色与风格在 config.json 的 `ttsVoice` / `ttsStyle` |
 | 视频合成 | ffmpeg / ffprobe 在 PATH |
 
 ## 开发

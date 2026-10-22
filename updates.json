@@ -1,22 +1,20 @@
 {
   "app": {
-    "version": "2.2.0",
+    "version": "2.2.1",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v2.2.0/nailong-Setup-2.2.0.exe",
-    "sha256": "96a11216b6b37927e13c5c9df48ee7f80028bbd973a5a4edd68676c7966fed0e",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v2.2.1/nailong-Setup-2.2.1.exe",
+    "sha256": "4946179e7f111e0d54c5e48652ae7764f48985fc769d6428a8ca33debe404e37",
     "notes": {
-      "summary": "对话直达讲解/视频，思考可暂停，图片能抠出里面的插图。",
+      "summary": "讲题不再「没有解题卡」，进度条会真的动，商店空了也有回应。",
       "items": [
-        "说「讲解一下」「做个视频」直接生成，不用再点右侧按钮（按钮已移除）",
-        "每条消息可复制；思考中可以暂停，已生成的内容保留",
-        "左侧文件可以直接拖进输入框；图片会 OCR 并自动抠出里面的插图",
-        "商店页签即时响应并缓存上次列表",
-        "视频可先预览（播放/拖时间轴）再决定是否渲染",
-        "模型统一为 deepseek-flash（旧配置自动迁移）"
+        "解题卡生成：自动重试 3 次 + 修复被截断/带围栏的 JSON + 兼容推理模型输出",
+        "生成讲解页/视频时进度条持续缓动，不再卡住",
+        "商店没有插件时显示「这里空空如也哦」",
+        "奶龙配音加入可爱小孩音色风格（可在 config.json 调整 ttsVoice/ttsStyle）"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.2.0/nailong-Setup-2.2.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.2.1/nailong-Setup-2.2.1.exe"
     ]
   },
   "plugins": [

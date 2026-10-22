@@ -59,11 +59,19 @@ async function ttsReady() {
   }
 }
 
-async function synthesize(text, outFile) {
+async function synthesize(text, outFile, opts = {}) {
+  const body = {
+    model: 'omnivoice',
+    input: text,
+    voice: opts.voice || 'default',
+    response_format: 'wav',
+  };
+  // 声音风格：OmniVoice 会按 voice-design 描述调整语气（可爱、奶声奶气…）
+  if (opts.instructions) body.instructions = String(opts.instructions).slice(0, 300);
   const res = await fetch(`${TTS_URL}/v1/audio/speech`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'omnivoice', input: text, voice: 'default', response_format: 'wav' }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(180000),
   });
   if (!res.ok) throw new Error(`语音合成失败（${res.status}）`);
@@ -603,7 +611,7 @@ async function generate(topic, config, workDir, onProgress = () => {}, verifiedS
     if (s.narration) {
       let ok = false;
       for (let attempt = 0; attempt < 2 && !ok; attempt++) {
-        try { await synthesize(s.narration, file); ok = true; }
+        try { await synthesize(s.narration, file, { voice: config.ttsVoice, instructions: config.ttsStyle }); ok = true; }
         catch (e) {
           if (attempt === 1) throw e;
           await new Promise((r) => setTimeout(r, 2000));

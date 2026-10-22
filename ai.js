@@ -57,7 +57,11 @@ function endpoint(config) {
 
 async function request(question, config, stream, systemPrompt, temperature, jsonMode) {
   const body = JSON.parse(buildBody(question, config, stream, systemPrompt, temperature));
-  if (jsonMode) body.response_format = { type: 'json_object' };
+  if (jsonMode) {
+    body.response_format = { type: 'json_object' };
+    // 解题卡可能很长，给足输出长度，减少被截断成半截 JSON
+    body.max_tokens = Math.max(Number(body.max_tokens) || 0, 8000);
+  }
   const res = await fetch(endpoint(config), {
     method: 'POST',
     headers: {
@@ -80,7 +84,9 @@ async function askDeepSeek(question, config, systemPrompt, temperature, opts = {
     else throw e;
   }
   const data = await res.json();
-  return data.choices?.[0]?.message?.content || '吼吼，我脑子卡住啦';
+  const msg = data.choices?.[0]?.message || {};
+  // 推理模型可能把正文放在 reasoning_content 里
+  return msg.content || msg.reasoning_content || '吼吼，我脑子卡住啦';
 }
 
 async function consumeSse(res, onDelta) {

@@ -60,12 +60,39 @@ const VERIFY_SYSTEM = `你是严格的阅卷老师。检查下面解题卡的每
 - 如果没有错误，ok=true，corrected 可以为 null。
 - corrected 必须保持同样的 JSON 结构。`;
 
+// 从模型输出里抠 JSON：去代码围栏、修剪前后废话、必要时补齐被截断的括号
+function repairJson(text) {
+  let s = String(text || '').trim();
+  s = s.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+  s = s.replace(/,\s*([}\]])/g, '$1');
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (const ch of s) {
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === '{' || ch === '[') depth++;
+    else if (ch === '}' || ch === ']') depth--;
+  }
+  if (inStr) s += '"';
+  while (depth-- > 0) s += '}';
+  return s;
+}
+
 function extractJson(raw) {
   const s = String(raw || '');
   const start = s.indexOf('{');
+  if (start < 0) return null;
   const end = s.lastIndexOf('}');
-  if (start < 0 || end <= start) return null;
-  try { return JSON.parse(s.slice(start, end + 1)); } catch { return null; }
+  if (end > start) {
+    try { return JSON.parse(s.slice(start, end + 1)); } catch (_) {}
+  }
+  try { return JSON.parse(repairJson(s.slice(start))); } catch (_) { return null; }
 }
 
 function isSpec(v) {
@@ -117,20 +144,45 @@ function imageData(file) {
 }
 
 async function solve(topic, config, imagePath, temperature = 0.2) {
-  const prompt = `${SOLVE_SYSTEM}\n\n题目/知识点：\n${topic}`;
-  let raw;
-  if (imagePath) {
+  const basePrompt = `${SOLVE_SYSTEM}
+
+题目/知识点：
+${topic}`;
+  const strictPrompt = `${SOLVE_SYSTEM}
+
+【重要】只输出一个 JSON 对象，从 { 开始、以 } 结束；不要代码围栏、不要解释、不要多余文字。
+
+题目/知识点：
+${topic}`;
+  let lastRaw = '';
+  let lastError = '';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const prompt = attempt === 0 ? basePrompt : strictPrompt;
     try {
-      raw = await ai.askWithImage(prompt, config, SOLVE_SYSTEM, imageData(imagePath), temperature);
-    } catch (_) {
-      raw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, temperature, { json: true });
+      if (imagePath && attempt === 0) {
+        try {
+          lastRaw = await ai.askWithImage(prompt, config, SOLVE_SYSTEM, imageData(imagePath), temperature);
+        } catch (_) {
+          lastRaw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, temperature, { json: true });
+        }
+      } else {
+        lastRaw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, attempt === 0 ? temperature : 0, { json: true });
+      }
+    } catch (e) {
+      lastError = e.message || String(e);
+      continue;
     }
-  } else {
-    raw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, temperature, { json: true });
+    const spec = extractJson(lastRaw);
+    if (isSpec(spec)) return normalizeSpec(spec);
+    lastError = 'JSON 解析失败';
   }
-  const spec = extractJson(raw);
-  if (!isSpec(spec)) throw new Error('模型没有返回解题卡');
-  return normalizeSpec(spec);
+  // 失败时把原始输出留一份，方便排查（只写临时目录，不打扰用户）
+  try {
+    const os = require('os');
+    const dump = path.join(os.tmpdir(), `nailong-solve-fail-${Date.now()}.txt`);
+    fs.writeFileSync(dump, String(lastRaw || lastError).slice(0, 20000), 'utf8');
+  } catch (_) {}
+  throw new Error('模型没有返回解题卡（已自动重试 3 次）' + (lastError ? '：' + String(lastError).slice(0, 80) : ''));
 }
 
 // 三角形图示自动追加勾股校验（只对数字标签生效）
@@ -572,4 +624,5 @@ async function generate(topic, config, imagePath, opts = {}) {
   return renderHtml(verified.spec, issues, note, imagePath ? imageData(imagePath) : '');
 }
 
-module.exports = { generate, solve, verify, renderHtml, findCachedSpec };
+module.exports = {
+  solve, generate, verify, renderHtml, findCachedSpec };

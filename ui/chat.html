@@ -2038,8 +2038,17 @@
     const items = r.items || [];
     if (!items.length) {
       const d = document.createElement('div');
-      d.className = 'tip';
-      d.textContent = '商店暂时没有插件。';
+      d.className = 'plugin-item';
+      const dh = document.createElement('div');
+      dh.className = 'plugin-head';
+      const dn = document.createElement('span');
+      dn.className = 'plugin-name';
+      dn.textContent = '🫧 这里空空如也哦';
+      dh.appendChild(dn);
+      const dw = document.createElement('div');
+      dw.className = 'plugin-what';
+      dw.textContent = '商店今天没有新插件～ 你可以先用上面的「能力工坊」自己造一个，或者过几天再来看看。';
+      d.append(dh, dw);
       box.appendChild(d);
     }
 
@@ -2144,15 +2153,29 @@
     bub.innerHTML = '<div class="vprog"><div class="vbar"><i></i></div><div class="vmsg">运行 /' + name + '…</div></div>';
     const bar = bub.querySelector('.vbar i');
     const msg = bub.querySelector('.vmsg');
+    // 进度条「呼吸」：真实进度到了就跳，没到就慢慢爬，避免卡在一个数字上像死机
+    let shownPct = 2;
+    let creepTimer = setInterval(() => {
+      if (shownPct < 96) {
+        shownPct += shownPct < 40 ? 0.8 : (shownPct < 80 ? 0.45 : 0.2);
+        bar.style.width = shownPct.toFixed(1) + '%';
+      }
+    }, 500);
+    const stopCreep = (finalPct) => {
+      clearInterval(creepTimer);
+      if (typeof finalPct === 'number') shownPct = finalPct;
+      bar.style.width = shownPct.toFixed(1) + '%';
+    };
     window.__pluginProgress = (p) => {
       if (!p || p.name !== name) return;
-      if (typeof p.pct === 'number') bar.style.width = p.pct + '%';
+      if (typeof p.pct === 'number' && p.pct > shownPct) { shownPct = p.pct; bar.style.width = shownPct.toFixed(1) + '%'; }
       if (p.msg) msg.textContent = p.msg;
     };
     let res;
     try { res = await window.nailong.runPluginCommand(name, args); }
     catch (e) { res = { ok: false, error: e && e.message ? e.message : e }; }
     window.__pluginProgress = null;
+    stopCreep(100);
     const meta = wrap.querySelector('.meta');
     if (!res || !res.ok) {
       bub.innerHTML = renderMd('插件出错：' + ((res && res.error) || '未知错误'));
