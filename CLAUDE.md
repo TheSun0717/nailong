@@ -183,6 +183,10 @@ data/video|explain/      产物
 - 检查：启动 5 秒后、每 6 小时、设置里手动。
 - 流程：检查 → 弹更新日志（文字 + 可选预渲染动画）→ 用户点下载 → 进度 → 重启安装。
 - 进化动画：**发版时预渲染** 20–30 秒，随包分发；首启播放，可跳过；失败降级文字。
+  - 文案在 `data/evolution.json`（version / kicker / scenes[icon,title,bullets,narration]），改文案不用改代码。
+  - 渲染：`electron . --evolution`（或 `--evolution <路径>`），复用视频流水线（VoiceStudio 配音 + 逐帧 + ffmpeg），产物默认 `assets/evolution.mp4`，随 `extraResources` 进安装包。
+  - 播放：`main.js` 里 `maybeShowEvolution()`，`config.lastSeenVersion !== app.getVersion()` 时打开 `ui/evolution.html`；关闭/跳过后写回 `lastSeenVersion`。缺 mp4 时静默跳过。
+  - 校验：`electron . --evotest` 截图到 `shots/evolution-window.png` 并检查是否在播放。
 - 供应商目录校验：发版跑 `tools/check-providers.mjs`，变动写入更新日志。
 
 ## 7. 登录型资料采集
@@ -231,7 +235,7 @@ data/video|explain/      产物
 
 1. 版本号 + `updates.json` 更新；
 2. `tools/check-providers.mjs` 校验供应商路径；
-3. 预渲染进化动画；
+3. 改 `data/evolution.json`（本版三到六句话）→ `electron . --evolution` → `electron . --evotest` 看一眼；
 4. `npm run dist` 生成安装包；`cap sync` + Gradle 生成 APK；
 5. 计算 SHA-256，写 `updates.json`；
 6. 创建 GitHub Release（安装包/插件包/动画/updates.json），push；
@@ -244,7 +248,7 @@ data/video|explain/      产物
 - [x] 插件宿主 + manifest + 能力总线 + 命令/面板 + 示例插件（hello-plugin）
 - [x] 商店基础（远程索引、zip + SHA-256、安装/更新、声明式命令、B站搜索插件）；自动回滚待补
 - [x] 主程序在线更新（自研：检查/日志/下载校验/静默安装；net.fetch 走系统代理 + ghproxy 镜像）
-- [ ] 学习助手 / 讲解工坊 插件化
+- [x] 学习助手 / 讲解工坊 插件化（`plugins/study-kit`、`plugins/teach-studio`，/study、/kb-stats、/explain、/video）
 - [x] 桌宠设置（0.5–2.0 缩放、独立画布 360–640、气泡开关）
 - [x] 问题反馈（FormSubmit 直投 + 作者微信）
 - [x] 供应商文档（应用内查看）+ API Key 助手 + 可配置 Base URL + 测试连接
@@ -269,7 +273,7 @@ data/video|explain/      产物
 - [x] 能力图谱缺失依赖一键补装
 - [x] 手机端声明式插件（/bili、/xhs 打开系统浏览器）
 - [x] 内置插件随应用更新（版本比较后自动覆盖，保留状态）
-- [ ] 预渲染进化动画
+- [x] 预渲染进化动画（`data/evolution.json` → `--evolution` → `assets/evolution.mp4` → 首启播放）
 
 ## 14. 已知限制
 

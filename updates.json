@@ -1,21 +1,23 @@
 {
   "app": {
-    "version": "1.18.1",
+    "version": "2.0.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.18.1/nailong-Setup-1.18.1.exe",
-    "sha256": "6e7587a9e33412f4e8e3dcf9c79c744d7cbfbc755658e888614b5ae4b7289ab1",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.0/nailong-Setup-2.0.0.exe",
+    "sha256": "fe7619e10cb26171a7719d7421fedc79d155738e044fa9448ea2ce5b9ee5832d",
     "notes": {
-      "summary": "视频直接用已验证解题卡。",
+      "summary": "奶龙 2.0：升级后第一次打开，先看一段 27 秒进化动画。",
       "items": [
-        "有解题卡时视频不再调用分镜模型",
-        "真实三角形/坐标图，0 额外 token",
-        "无解题卡时保持分镜 + 流程图兜底"
+        "进化动画：升级后首启播放一次，可跳过",
+        "几何题强制配图（三角形/受力图），解题页更好懂",
+        "旧解题卡自动失效重做，图示更准",
+        "学习助手、讲解工坊、资料搜索、错题本全部插件化",
+        "主程序与插件都能在线更新"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.18.1/nailong-Setup-1.18.1.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.0/nailong-Setup-2.0.0.exe"
     ]
   },
   "plugins": [],
-  "catalogVersion": "2026-10-21"
+  "catalogVersion": "2026-10-22"
 }

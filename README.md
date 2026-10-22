@@ -24,6 +24,12 @@
 - 错题本、能力工坊（一句话造插件）、插件进度条、作品库、历史记录、多标签
 - 内置种子资料：通用学习法、北邮 AI 课程经验、机器学习入门路线、数学与期末复习、小红书学长学姐经验（均标注公开来源）；不编造校内试卷或学长原话
 
+**插件与更新**
+- 插件商店：安装 / 更新 / 卸载 / 依赖补装；每个插件都有「是什么、点哪里、会发生什么、失败了怎么办」四句话
+- 第一方插件：学习资料助手（`/study`、`/kb-stats`）、讲解工坊（`/explain`、`/video`）、资料搜索（`/bili`、`/xhs`）、错题本
+- 主程序与插件都能在线更新：检查 → 更新日志 → 下载校验 SHA-256 → 静默安装
+- 进化动画：发版时预渲染 20–30 秒，升级后首次启动播放一次，可跳过
+
 **教学可视化**
 - 🧩：把输入框里的题目/知识点生成为单文件交互式 HTML 讲解页（分步、可缩放、断网可用）
 - 🎬：生成 5–7 个镜头的讲解视频（分镜 → 画面 → 配音 → MP4）
@@ -62,6 +68,10 @@ electron . --capture
 # 生成一条讲解视频（需要 VoiceStudio）
 electron . --videotest "勾股定理的直观证明"
 
+# 预渲染进化动画（发版时），并检查播放器
+electron . --evolution
+electron . --evotest
+
 # 知识库回归
 node tests/kb.test.js
 ```
@@ -71,7 +81,7 @@ node tests/kb.test.js
 ```bash
 export ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
 export ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/
-npm run dist   # 产物在 dist/奶龙 Setup 1.0.0.exe
+npm run dist   # 产物在 dist/奶龙 Setup <版本>.exe
 ```
 
 ## 结构
@@ -85,6 +95,8 @@ npm run dist   # 产物在 dist/奶龙 Setup 1.0.0.exe
 | `features/study.js` | 学习意图判断与学习路径提示词 |
 | `features/teach.js` | 单文件 HTML 讲解页生成（含 CSP 锁定） |
 | `features/video.js` | 分镜 → TTS → 逐帧渲染 → ffmpeg 合成 |
+| `features/evolution.js` | 进化动画：`data/evolution.json` 文案 → 复用视频流水线预渲染 `assets/evolution.mp4` |
+| `ui/evolution.html` | 升级后首启播放进化动画（可跳过） |
 | `tools/ocr.py` | 本地 OCR 侧车 |
 | `data/seed/` | 内置通用学习法 |
 | `ui/` | pet / chat / fullscreen 三个页面 + 本地 marked、DOMPurify |

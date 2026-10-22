@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<title>奶龙进化日志</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: #1F1810; overflow: hidden;
+    font-family: "Microsoft YaHei UI", "PingFang SC", sans-serif; }
+  video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #1F1810; }
+  .skip { position: absolute; right: 20px; bottom: 18px; padding: 9px 20px; border-radius: 20px;
+    border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.35); color: #F4E8D2;
+    font-size: 14px; letter-spacing: 1px; cursor: pointer; }
+  .skip:hover { background: rgba(0,0,0,.6); }
+  .play, .err { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 18px;
+    align-items: center; justify-content: center; color: #F4E8D2; text-align: center; padding: 40px; }
+  .play button { padding: 14px 34px; border-radius: 26px; border: none; background: #F2A81D;
+    color: #2E2419; font-size: 18px; font-weight: 700; cursor: pointer; }
+  .err p { font-size: 16px; color: #C9B99A; line-height: 1.7; }
+  [hidden] { display: none !important; }
+</style></head>
+<body>
+  <video id="v" playsinline></video>
+  <button class="skip" id="skip">跳过</button>
+  <div class="play" id="play" hidden><p style="font-size:18px">奶龙的进化日志</p><button id="playBtn">播放</button></div>
+  <div class="err" id="err" hidden>
+    <p>这一版的进化动画没能播放。</p>
+    <p id="errDetail">可以到设置里查看本版更新日志。</p>
+  </div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const v = document.getElementById('v');
+  const play = document.getElementById('play');
+  const err = document.getElementById('err');
+  const done = () => { try { window.close(); } catch (_) {} };
+  document.getElementById('skip').onclick = done;
+  v.addEventListener('ended', () => setTimeout(done, 400));
+  v.addEventListener('error', () => { err.hidden = false; v.hidden = true; play.hidden = true; });
+  const src = q.get('src') || '';
+  if (!src) { err.hidden = false; }
+  else {
+    v.src = src;
+    v.play().catch(() => { play.hidden = false; });
+    document.getElementById('playBtn').onclick = () => { play.hidden = true; v.play().catch(() => {}); };
+  }
+</script>
+</body></html>

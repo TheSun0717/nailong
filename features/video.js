@@ -414,4 +414,7 @@ async function generate(topic, config, workDir, onProgress = () => {}, verifiedS
   return { ok: true, dir, video: outFile, title: data.title, frames: totalFrames, duration: Math.round(totalMs / 1000) };
 }
 
-module.exports = { generate, finish, storyboard, buildHtml, scenesFromSpec, ttsReady, FPS };
+module.exports = {
+  generate, finish, storyboard, buildHtml, scenesFromSpec, ttsReady, FPS,
+  ensureTts, synthesize, audioDuration, renderFrames, mux,
+};

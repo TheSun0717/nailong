@@ -46,6 +46,7 @@ const SOLVE_SYSTEM = `你是严谨的学科老师。解出题目并输出一张�
   - 不需要图就用 {"type":"none"}
 - 公式不要用 LaTeX 定界符；用普通文本。
 - 每个步骤的 visual 都必须给；至少两个步骤要有图示（triangle/axes/flow/circle/numberline/vectors），不能全是 none。
+- 如果题目涉及三角形/几何图形，至少一个步骤必须用 triangle，并把已知边长/角度写进 data；物理受力题至少一个步骤用 vectors。
 - checks 至少给一条对最终答案的数值验算（expr/equals 用普通运算符，^ 表示乘方，vars 可选）；没有可验算的式子就给空数组。
 - 只输出 JSON。`;
 
@@ -477,7 +478,7 @@ B：${JSON.stringify(b)}`,
   }
 }
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_TTL = 30 * 24 * 3600 * 1000;
 
 function cacheKey(q, config, imagePath) {

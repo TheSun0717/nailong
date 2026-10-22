@@ -8,6 +8,7 @@ const kb = require('./features/kb');
 const study = require('./features/study');
 const teach = require('./features/teach');
 const video = require('./features/video');
+const evolution = require('./features/evolution');
 const bili = require('./features/bilibili');
 const updater = require('./features/updater');
 const plugins = require('./features/plugins');
@@ -227,6 +228,34 @@ function unlockSecrets() {
 }
 function assetUrl(rel) {
   return pathToFileURL(path.join(assetsRoot, rel)).href;
+}
+
+// 进化动画：发版时预渲染成 assets/evolution.mp4，升级后首启播放一次，可跳过
+let evolutionWin = null;
+function createEvolutionWindow() {
+  const mp4 = path.join(assetsRoot, 'evolution.mp4');
+  if (!fs.existsSync(mp4)) return null;
+  const win = new BrowserWindow({
+    width: 1040, height: 620, resizable: false, title: '奶龙进化日志', backgroundColor: '#1F1810',
+    webPreferences: { sandbox: true, contextIsolation: true },
+  });
+  win.setMenuBarVisibility(false);
+  win.loadFile(path.join(__dirname, 'ui', 'evolution.html'), { query: { src: pathToFileURL(mp4).href } });
+  win.on('closed', () => {
+    if (evolutionWin === win) evolutionWin = null;
+    config.lastSeenVersion = app.getVersion();
+    saveConfig();
+  });
+  evolutionWin = win;
+  return win;
+}
+
+function maybeShowEvolution() {
+  if (config.lastSeenVersion === app.getVersion()) return;
+  if (!createEvolutionWindow()) {
+    config.lastSeenVersion = app.getVersion();
+    saveConfig();
+  }
 }
 
 // ---------- 窗口 ----------
@@ -1224,10 +1253,35 @@ app.whenReady().then(() => {
       .catch((e) => { console.error('[videotest] ERROR', e.message); app.exit(1); });
     return;
   }
+  if (process.argv.includes('--evolution')) {
+    const i = process.argv.indexOf('--evolution');
+    const out = process.argv[i + 1] || path.join(__dirname, 'assets', 'evolution.mp4');
+    evolution.generate(out, undefined, (p) => console.log('[evolution]', p.pct + '%', p.msg))
+      .then((r) => { console.log('[evolution] OK', JSON.stringify(r)); app.exit(0); })
+      .catch((e) => { console.error('[evolution] ERR', e.message); app.exit(1); });
+    return;
+  }
+  if (process.argv.includes('--evotest')) {
+    const win = createEvolutionWindow();
+    if (!win) { console.error('[evotest] 缺 assets/evolution.mp4，先跑 --evolution'); app.exit(1); return; }
+    win.webContents.once('did-finish-load', async () => {
+      await new Promise((r) => setTimeout(r, 2600));
+      try {
+        const img = await win.webContents.capturePage();
+        fs.mkdirSync(path.join(__dirname, 'shots'), { recursive: true });
+        fs.writeFileSync(path.join(__dirname, 'shots', 'evolution-window.png'), img.toPNG());
+        const st = await win.webContents.executeJavaScript(`({ playing: !document.getElementById('v').paused, t: document.getElementById('v').currentTime.toFixed(1), failed: !document.getElementById('err').hidden })`);
+        console.log('[evotest]', JSON.stringify(st));
+        app.exit(st.playing && !st.failed ? 0 : 1);
+      } catch (e) { console.error('[evotest] ERR', e.message); app.exit(1); }
+    });
+    return;
+  }
   if (app.isPackaged && config.openAtLogin) app.setLoginItemSettings({ openAtLogin: true });
   // 全局快捷键：Ctrl+Alt+D 显示/隐藏奶龙
   const ok = globalShortcut.register('CommandOrControl+Alt+D', togglePet);
   if (!ok) console.warn('[奶龙] 快捷键 Ctrl+Alt+D 注册失败（可能被其他程序占用）');
+  maybeShowEvolution();
 });
 
 // 常驻托盘，关闭所有窗口不退出（靠托盘「退出奶龙」退出）
