@@ -1,0 +1,14 @@
+{
+  "title": "解方程 x² = 4",
+  "subject": "数学 · 一元二次方程",
+  "question": "解方程 x² = 4",
+  "intuition": "开平方就是问：谁的平方等于 4？",
+  "analogy": "就像问，哪两个相同的数乘起来等于 4。答案是 2 和 -2。",
+  "steps": [
+    { "title": "先看方程", "body": "x 的平方等于 4，要去掉平方。", "visual": { "type": "spotlight", "data": { "title": "一句话直觉", "text": "开平方，就是问谁的平方等于 4" } } },
+    { "title": "两边开平方", "body": "两边同时开平方，得到 x 等于正负根号 4。", "visual": { "type": "formula", "data": { "lines": ["x^2 = 4", "√(x^2) = √4", "x = ±2"], "highlight": 2, "note": "正负都要写，别漏掉 -2" }, "camera": { "from": 1, "to": 1.04 } } },
+    { "title": "代回去验算", "body": "把 2 和 -2 代回去，平方都是 4。", "visual": { "type": "compare", "data": { "left": { "title": "错解", "text": "x = 2" }, "right": { "title": "正解", "text": "x = ±2" } } } }
+  ],
+  "answer": "x = 2 或 x = -2",
+  "checkpoint": "别忘了负根。"
+}

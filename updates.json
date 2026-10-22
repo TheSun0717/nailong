@@ -1,21 +1,21 @@
 {
   "app": {
-    "version": "2.0.1",
+    "version": "2.1.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.1/nailong-Setup-2.0.1.exe",
-    "sha256": "d09b97feb03fcd0fed148b39b3408ff1d5f326dd795652819cdb17755d54f542",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v2.1.0/nailong-Setup-2.1.0.exe",
+    "sha256": "af11bd0ed8fc566e31902cb0b14972e38d532b5c20abaabaddfa708447803966",
     "notes": {
-      "summary": "修好自动更新：点一下，装完自己重开，桌面图标打开就是最新版。",
+      "summary": "奶龙 2.1：讲解视频会「导演」了——公式会变形，字幕会跟着念。",
       "items": [
-        "自动更新改为原地安装，装完自动重启新版",
-        "桌面快捷方式自动指向新版本",
-        "启动 8 秒后自动检查更新，之后每 6 小时再查一次",
-        "发现新版本时桌宠会先提醒（气泡关掉就不打扰）",
-        "补丁版本不再重播进化动画"
+        "视频新增 5 种镜头：公式逐行变形、黑板板书、聚光卡、错解正解对照、电影感推近",
+        "字幕按句切换，不再整段糊在底部",
+        "渲染前自动检查空旁白/超长文案/缺图示",
+        "新增抽帧验收与固定讲解卡回归命令",
+        "更新器改用 cmd，安装完自动重启并修复桌面快捷方式（2.0.1 已修，这版内置）"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.1/nailong-Setup-2.0.1.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.1.0/nailong-Setup-2.1.0.exe"
     ]
   },
   "plugins": [

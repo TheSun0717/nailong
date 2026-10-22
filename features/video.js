@@ -105,29 +105,39 @@ ${JSON.stringify({ title: verifiedSpec.title, steps: verifiedSpec.steps, answer:
 // 用已验证解题卡直接生成分镜：真实图示、0 额外模型调用
 function scenesFromSpec(spec) {
   const scenes = [];
-  const firstVisual = (spec.steps && spec.steps[0] && spec.steps[0].visual) || { type: 'none' };
+  let firstVisual = (spec.steps && spec.steps[0] && spec.steps[0].visual) || { type: 'none' };
+  if ((!firstVisual || firstVisual.type === 'none') && spec.intuition) {
+    firstVisual = { type: 'spotlight', data: { title: '一句话直觉', text: spec.intuition } };
+  }
   scenes.push({
     title: spec.title || '讲解',
     bullets: [spec.intuition || spec.question || ''].filter(Boolean).slice(0, 2),
     narration: [spec.intuition, spec.analogy].filter(Boolean).join('。') || spec.question || spec.title || '',
     visual: firstVisual,
   });
-  for (const st of (spec.steps || []).slice(0, 6)) {
+  (spec.steps || []).slice(0, 6).forEach((st, i) => {
     const sentences = String(st.body || '').split(/[。；;!?！？]/).map((x) => x.trim()).filter(Boolean);
     const bullets = [st.title, ...sentences].filter(Boolean).slice(0, 3).map((x) => String(x).slice(0, 24));
+    let vis = st.visual || { type: 'none' };
+    // 同一动效不当两次主角：开场已经是 spotlight，第一步就不再重复
+    if (i === 0 && vis.type === 'spotlight' && firstVisual.type === 'spotlight') vis = { type: 'none' };
     scenes.push({
       title: st.title || '步骤',
       bullets,
       narration: [st.title, st.body].filter(Boolean).join('。').slice(0, 400),
-      visual: st.visual || { type: 'none' },
+      visual: vis,
     });
-  }
+  });
   if (spec.answer) {
     scenes.push({
       title: '答案',
       bullets: [String(spec.answer).slice(0, 24)],
       narration: `所以答案是 ${spec.answer}。${spec.checkpoint || ''}`,
-      visual: { type: 'none' },
+      visual: {
+        type: 'formula',
+        data: { lines: [String(spec.answer)], highlight: 0, note: spec.checkpoint || '' },
+        camera: { from: 1, to: 1.03 },
+      },
     });
   }
   return scenes.slice(0, 8);
@@ -195,6 +205,76 @@ function svgForVisual(v) {
   return '';
 }
 
+// 镜头词汇表：formula/board/spotlight/compare 是 2.1 新增的语义镜头（借鉴 Manim / video-shotcraft）
+const KNOWN_TYPES = new Set(['triangle', 'axes', 'vectors', 'flow', 'circle', 'numberline', 'formula', 'board', 'spotlight', 'compare', 'none']);
+
+// 上标小美化：x^2 → x²（只影响画面，不影响旁白读音）
+function prettyMath(text) {
+  return String(text ?? '')
+    .replace(/\^2/g, '²')
+    .replace(/\^3/g, '³')
+    .replace(/\^\(-1\)/g, '⁻¹')
+    .replace(/\^\(1\/2\)/g, '½');
+}
+
+function visualHtml(v) {
+  const type = (v && v.type) || 'none';
+  const d = (v && v.data) || {};
+  if (type === 'formula') {
+    const lines = (Array.isArray(d.lines) ? d.lines : []).slice(0, 4);
+    const hl = Number.isFinite(d.highlight) ? d.highlight : lines.length - 1;
+    return '<div class="v-formula">' + lines.map((l, i) =>
+      `<div class="fl${i === hl ? ' hl' : ''}">${esc(prettyMath(l))}</div>`).join('') +
+      (d.note ? `<div class="f-note">${esc(prettyMath(d.note))}</div>` : '') + '</div>';
+  }
+  if (type === 'board') {
+    const steps = (Array.isArray(d.steps) ? d.steps : []).slice(0, 5);
+    return '<div class="v-board">' + steps.map((s, i) =>
+      `<div class="bs${i === d.underline ? ' ul' : ''}">${esc(prettyMath(s))}</div>`).join('') + '</div>';
+  }
+  if (type === 'spotlight') {
+    return '<div class="v-spot"><div class="sp-glow"></div><div class="sp-card">' +
+      `<div class="sp-title">${esc(d.title || '一句话直觉')}</div><div class="sp-text">${esc(prettyMath(d.text || ''))}</div></div></div>`;
+  }
+  if (type === 'compare') {
+    const L = d.left || {};
+    const R = d.right || {};
+    return '<div class="v-cmp">' +
+      `<div class="cmp cl"><b>${esc(L.title || '错解')}</b><span>${esc(prettyMath(L.text || ''))}</span></div>` +
+      `<div class="cmp cr"><b>${esc(R.title || '正解')}</b><span>${esc(prettyMath(R.text || ''))}</span></div>` +
+      '</div>';
+  }
+  return svgForVisual(v);
+}
+
+// 渲染前 lint：空旁白、超长文案、缺图示、未知镜头
+function lintSpec(scenes) {
+  const issues = [];
+  if (!Array.isArray(scenes) || !scenes.length) return ['没有镜头'];
+  scenes.forEach((s, i) => {
+    const n = String(s.narration || '').trim();
+    if (!n) issues.push(`第 ${i + 1} 镜没有旁白`);
+    if (n.length > 140) issues.push(`第 ${i + 1} 镜旁白过长（${n.length} 字）`);
+    (s.bullets || []).forEach((b) => {
+      if (String(b).length > 28) issues.push(`第 ${i + 1} 镜 bullet 超长：${String(b).slice(0, 12)}…`);
+    });
+    const t = (s.visual && s.visual.type) || 'none';
+    // 没有显式图示时，渲染层会用流程图标兜底（需要至少两条要点）
+    if (t === 'none' && (s.bullets || []).length < 2) issues.push(`第 ${i + 1} 镜没有图示`);
+    if (!KNOWN_TYPES.has(t)) issues.push(`第 ${i + 1} 镜未知镜头类型：${t}`);
+  });
+  if (scenes.length > 9) issues.push(`镜头数 ${scenes.length} 偏多，建议 ≤9`);
+  return issues;
+}
+
+function splitSentences(text) {
+  return String(text || '')
+    .split(/[。！？；!?;]/)
+    .map((x) => x.trim())
+    .filter((x) => x.length >= 2)
+    .slice(0, 6);
+}
+
 function buildHtml(data, timeline, totalMs) {
   const scenesHtml = data.scenes.map((s, i) => `
     <section class="scene${i === 0 ? ' active' : ''}">
@@ -203,12 +283,11 @@ function buildHtml(data, timeline, totalMs) {
       <div class="cols">
         <div class="txt"><ul>${s.bullets.map((b) => `<li><span class="dot"></span><span>${esc(b)}</span></li>`).join('')}</ul></div>
         ${(() => {
-          let svg = svgForVisual(s.visual);
-          if (!svg && s.bullets && s.bullets.length >= 2) svg = svgForVisual({ type: 'flow', data: { nodes: s.bullets } });
-          return svg ? `<div class="vis">${svg}</div>` : '';
+          let html = visualHtml(s.visual);
+          if (!html && s.bullets && s.bullets.length >= 2) html = visualHtml({ type: 'flow', data: { nodes: s.bullets } });
+          return html ? `<div class="vis">${html}</div>` : '';
         })()}
       </div>
-      <p class="sub">${esc(s.narration)}</p>
     </section>`).join('');
 
   return `<!DOCTYPE html>
@@ -234,20 +313,43 @@ function buildHtml(data, timeline, totalMs) {
   @keyframes draw { to { stroke-dashoffset: 0; } }
   .sub { position: absolute; left: 84px; right: 84px; bottom: 58px; font-size: 20px; line-height: 1.55; color: #8A7860; }
   .bar { position: absolute; left: 0; bottom: 0; height: 6px; width: 0; background: #F2A81D; }
+  /* 2.1 语义镜头 */
+  .v-formula, .v-board { display: flex; flex-direction: column; gap: 16px; font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 30px; color: #2E2419; }
+  .fl, .bs { padding: 6px 12px; border-left: 3px solid transparent; transition: none; }
+  .fl.hl { background: rgba(242,168,29,.16); border-left-color: #F2A81D; border-radius: 6px; }
+  .f-note { font-family: "Microsoft YaHei UI", sans-serif; font-size: 18px; color: #C08A17; margin-top: 4px; }
+  .bs.ul { border-bottom: 3px solid #F2A81D; display: inline-block; padding-bottom: 4px; }
+  .v-spot { position: relative; width: 100%; height: 300px; display: flex; align-items: center; justify-content: center; }
+  .sp-glow { position: absolute; width: 360px; height: 360px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,201,60,.55), rgba(255,201,60,0) 70%); }
+  .sp-card { position: relative; width: 100%; padding: 26px 24px; border-radius: 20px; background: #FFFDF7;
+    box-shadow: 0 14px 32px rgba(120,90,40,.16); border: 1px solid rgba(58,42,26,.08); }
+  .sp-title { font-size: 18px; letter-spacing: 2px; color: #C08A17; margin-bottom: 12px; }
+  .sp-text { font-size: 24px; line-height: 1.5; }
+  .v-cmp { display: flex; gap: 14px; width: 100%; }
+  .cmp { flex: 1; padding: 20px 16px; border-radius: 16px; display: flex; flex-direction: column; gap: 12px;
+    font-size: 22px; line-height: 1.4; background: rgba(58,42,26,.05); }
+  .cmp b { font-size: 16px; letter-spacing: 1px; color: #B6A78E; }
+  .cmp.cr { background: rgba(255,201,60,.22); }
+  .cmp.cr b { color: #C08A17; }
 </style></head>
 <body>
   <div class="bg"></div>
   <div class="brand">奶龙讲解</div>
   <div class="counter" id="counter"></div>
   <div id="scenes">${scenesHtml}</div>
+  <p class="sub" id="sub"></p>
   <div class="bar" id="bar"></div>
 <script>
   const TIMELINE = ${JSON.stringify(timeline)};
   const TOTAL = ${totalMs};
+  const SUBS = ${JSON.stringify(data.scenes.map((s) => splitSentences(s.narration)))};
+  const CAMERAS = ${JSON.stringify(data.scenes.map((s) => (s.visual && s.visual.camera) || null))};
   const scenes = Array.from(document.querySelectorAll('.scene'));
   const titles = scenes.map((s) => s.querySelector('h1'));
   const bullets = scenes.map((s) => Array.from(s.querySelectorAll('li')));
-  const subs = scenes.map((s) => s.querySelector('.sub'));
+  const subEl = document.getElementById('sub');
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   window.__renderAt = function (ms) {
     let idx = TIMELINE.length - 1;
@@ -264,8 +366,40 @@ function buildHtml(data, timeline, totalMs) {
       el.style.transform = i === idx ? 'scale(' + (1.03 - 0.03 * enter) + ')' : 'scale(1)';
       el.style.transformOrigin = 'center center';
     });
+    const dur = Math.max(1, st.end - st.start);
+    const pr = clamp(local / dur, 0, 1);
     const vis = scenes[idx].querySelector('.vis');
-    if (vis) vis.style.transform = 'scale(' + (1 + 0.03 * clamp(local / (st.end - st.start), 0, 1)) + ')';
+    if (vis) {
+      const cam = CAMERAS[idx] || { from: 1, to: 1.03 };
+      const sc = (cam.from || 1) + ((cam.to || 1) - (cam.from || 1)) * pr;
+      vis.style.transform = 'translate(' + ((cam.panX || 0) * pr) + 'px,' + ((cam.panY || 0) * pr) + 'px) scale(' + sc + ')';
+    }
+    // formula：行依次写出，旧行变淡，高亮行最后强调
+    scenes[idx].querySelectorAll('.fl').forEach((el, i) => {
+      const p = clamp((local - 420 - i * 550) / 420, 0, 1);
+      el.style.opacity = p * (el.classList.contains('hl') ? 1 : 0.55);
+      el.style.transform = 'translateX(' + (1 - p) * -16 + 'px)';
+    });
+    // board：板书逐条出现
+    scenes[idx].querySelectorAll('.bs').forEach((el, i) => {
+      const p = clamp((local - 420 - i * 620) / 450, 0, 1);
+      el.style.opacity = p;
+      el.style.transform = 'translateY(' + (1 - p) * 10 + 'px)';
+    });
+    // spotlight：卡片弹入，光斑缓慢呼吸
+    const sp = scenes[idx].querySelector('.sp-card');
+    if (sp) {
+      const p = clamp((local - 350) / 650, 0, 1);
+      sp.style.opacity = p;
+      sp.style.transform = 'scale(' + (0.92 + 0.08 * p) + ')';
+      const glow = scenes[idx].querySelector('.sp-glow');
+      if (glow) glow.style.opacity = 0.5 + 0.5 * Math.sin(local / 420);
+    }
+    // compare：左栏先亮，右栏随后
+    const cl = scenes[idx].querySelector('.cmp.cl');
+    const cr = scenes[idx].querySelector('.cmp.cr');
+    if (cl) { const p = clamp((local - 400) / 500, 0, 1); cl.style.opacity = p; cl.style.transform = 'translateY(' + (1 - p) * 14 + 'px)'; }
+    if (cr) { const p = clamp((local - 1100) / 500, 0, 1); cr.style.opacity = p; cr.style.transform = 'translateY(' + (1 - p) * 14 + 'px)'; }
     const p1 = clamp(local / 700, 0, 1);
     titles[idx].style.opacity = p1;
     titles[idx].style.transform = 'translateY(' + (1 - p1) * 20 + 'px)';
@@ -274,8 +408,23 @@ function buildHtml(data, timeline, totalMs) {
       b.style.opacity = p;
       b.style.transform = 'translateX(' + (1 - p) * -20 + 'px)';
     });
-    const ps = clamp((local - 1400) / 700, 0, 1);
-    subs[idx].style.opacity = ps * 0.95;
+    // 字幕按句走：按每句字数分配显示时间，一次只亮一句
+    const sents = SUBS[idx] || [];
+    if (sents.length) {
+      const chars = sents.map((x) => Math.max(2, x.length));
+      const totalCh = chars.reduce((a, b) => a + b, 0);
+      const p = clamp((local - 1000) / Math.max(900, dur - 1500), 0, 1);
+      let acc = 0;
+      let k = sents.length - 1;
+      for (let i = 0; i < sents.length; i++) {
+        acc += chars[i] / totalCh;
+        if (p < acc) { k = i; break; }
+      }
+      subEl.textContent = sents[k];
+      subEl.style.opacity = clamp((local - 900) / 500, 0, 1) * clamp((st.end - ms) / 420, 0, 1);
+    } else {
+      subEl.textContent = '';
+    }
     document.getElementById('bar').style.width = clamp(ms / TOTAL, 0, 1) * 100 + '%';
     document.getElementById('counter').textContent =
       String(idx + 1).padStart(2, '0') + ' / ' + String(TIMELINE.length).padStart(2, '0');
@@ -376,6 +525,8 @@ async function generate(topic, config, workDir, onProgress = () => {}, verifiedS
     ? { title: verifiedSpec.title || topic, subject: verifiedSpec.subject || '学习', scenes: scenesFromSpec(verifiedSpec) }
     : await storyboard(topic, config);
   fs.writeFileSync(path.join(dir, 'storyboard.json'), JSON.stringify(data, null, 2), 'utf8');
+  const issues = lintSpec(data.scenes);
+  if (issues.length) console.warn('[video] lint:', issues.join('；'));
 
   const durations = [];
   for (let i = 0; i < data.scenes.length; i++) {
@@ -411,10 +562,11 @@ async function generate(topic, config, workDir, onProgress = () => {}, verifiedS
   const outFile = path.join(dir, 'video.mp4');
   await mux(dir, timeline, totalMs, outFile);
 
-  return { ok: true, dir, video: outFile, title: data.title, frames: totalFrames, duration: Math.round(totalMs / 1000) };
+  return { ok: true, dir, video: outFile, title: data.title, frames: totalFrames, duration: Math.round(totalMs / 1000), issues };
 }
 
 module.exports = {
   generate, finish, storyboard, buildHtml, scenesFromSpec, ttsReady, FPS,
   ensureTts, synthesize, audioDuration, renderFrames, mux,
+  visualHtml, lintSpec, splitSentences, KNOWN_TYPES,
 };

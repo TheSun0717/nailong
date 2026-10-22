@@ -35,6 +35,11 @@
 - 🎬：生成 5–7 个镜头的讲解视频（分镜 → 画面 → 配音 → MP4）
 - 图片先本地 OCR（RapidOCR），识别结果填回输入框
 
+**视频导演（2.1）**
+- 11 种镜头：三角/坐标/受力/流程/圆/数轴 + 公式变形（formula）/板书（board）/聚光卡（spotlight）/错解正解对照（compare）/运镜（camera）
+- 字幕按句切换；渲染前 lint；`--videostill` 抽帧验收
+- 方法论：`docs/视频生成剖析与合并.md`；可复用 skill：`~/.claude/skills/nailong-videocraft/`
+
 ## 依赖
 
 | 能力 | 依赖 |

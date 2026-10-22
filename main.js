@@ -1355,6 +1355,46 @@ app.whenReady().then(() => {
       .catch((e) => { console.error('[muxonly] ERROR', e.message); app.exit(1); });
     return;
   }
+  if (process.argv.includes('--specvideo')) {
+    const i = process.argv.indexOf('--specvideo');
+    const file = process.argv[i + 1];
+    try {
+      const spec = JSON.parse(fs.readFileSync(file, 'utf8'));
+      video.generate(spec.title || '讲解', config, videoDir, (p) => console.log('[specvideo]', p.pct, p.msg), spec)
+        .then((r) => { console.log('[specvideo] OK', JSON.stringify(r)); app.exit(0); })
+        .catch((e) => { console.error('[specvideo] ERR', e.message); app.exit(1); });
+    } catch (e) {
+      console.error('[specvideo] ERR', e.message);
+      app.exit(1);
+    }
+    return;
+  }
+  if (process.argv.includes('--videostill')) {
+    const i = process.argv.indexOf('--videostill');
+    const dir = process.argv[i + 1];
+    const ms = Number(process.argv[i + 2] || 0);
+    const out = process.argv[i + 3] || path.join(dir, `still-${ms}.png`);
+    (async () => {
+      try {
+        const win = new BrowserWindow({
+          width: 1280, height: 720, show: false, frame: false,
+          webPreferences: { sandbox: true, contextIsolation: true, backgroundThrottling: false },
+        });
+        await win.loadFile(path.join(dir, 'video.html'));
+        await new Promise((r) => setTimeout(r, 400));
+        await win.webContents.executeJavaScript(
+          `window.__renderAt(${ms}); new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))`);
+        const img = await win.webContents.capturePage();
+        fs.writeFileSync(out, img.toPNG());
+        console.log('[videostill]', out);
+        app.exit(0);
+      } catch (e) {
+        console.error('[videostill] ERR', e.message);
+        app.exit(1);
+      }
+    })();
+    return;
+  }
   if (process.argv.includes('--videotest')) {
     const i = process.argv.indexOf('--videotest');
     video.generate(process.argv[i + 1] || '勾股定理', config, videoDir, (p) => console.log('[video]', p.pct, p.msg))
