@@ -154,6 +154,9 @@ data/video|explain/      产物
 - 详情页：四字段简介、权限列表、截图、版本与更新日志、安装/更新/卸载。
 - 能力工坊：一句话造插件入口（常驻），附「试衣间」预览。
 - 离线：缓存上次索引，显示「离线，展示缓存」。
+- 索引来源：`updates.json` 的 `plugins` 数组（与主程序同一份清单，走 GitHub Contents API 实时读取）。
+- 打包插件：`node tools/pack-plugins.mjs vX.Y.Z` → `dist/plugins/*.zip` + 可直接合并的条目（含 sha256 与 ghproxy 镜像），再 `gh release upload vX.Y.Z dist/plugins/*.zip`。
+- 版本比较：宿主 `ensureBundled` 只在随包版本更高时覆盖，商店升级过的插件不会被安装包降级。
 
 ## 6. 更新协议
 
@@ -237,16 +240,18 @@ data/video|explain/      产物
 2. `tools/check-providers.mjs` 校验供应商路径；
 3. 改 `data/evolution.json`（本版三到六句话）→ `electron . --evolution` → `electron . --evotest` 看一眼；
 4. `npm run dist` 生成安装包；`cap sync` + Gradle 生成 APK；
-5. 计算 SHA-256，写 `updates.json`；
-6. 创建 GitHub Release（安装包/插件包/动画/updates.json），push；
-7. 验证：另一台机器检查更新 → 下载 → 安装 → 回滚。
+5. 计算 SHA-256，写 `updates.json`；`node tools/pack-plugins.mjs vX.Y.Z` 更新 `plugins` 条目；
+6. `gh release upload vX.Y.Z dist/plugins/*.zip`；`electron . --storetest` 验证下载/校验/执行；
+7. 创建 GitHub Release（安装包/插件包/动画/updates.json），push；
+8. 验证：另一台机器检查更新 → 下载 → 安装 → 回滚。
 
 ## 13. 当前阶段与下一步
 
 - [x] 需求 grilling（3 轮）与界限确认
 - [x] 项目级 CLAUDE.md
 - [x] 插件宿主 + manifest + 能力总线 + 命令/面板 + 示例插件（hello-plugin）
-- [x] 商店基础（远程索引、zip + SHA-256、安装/更新、声明式命令、B站搜索插件）；自动回滚待补
+- [x] 商店基础（远程索引、zip + SHA-256、安装/更新、声明式命令、B站搜索插件）；自动回滚（`plugin-host` 加载失败回退 `.bak`）
+- [x] 商店远程索引上线（5 个第一方插件包随 v2.0.0 发布，`--storetest` 实测下载/校验/执行通过）
 - [x] 主程序在线更新（自研：检查/日志/下载校验/静默安装；net.fetch 走系统代理 + ghproxy 镜像）
 - [x] 学习助手 / 讲解工坊 插件化（`plugins/study-kit`、`plugins/teach-studio`，/study、/kb-stats、/explain、/video）
 - [x] 桌宠设置（0.5–2.0 缩放、独立画布 360–640、气泡开关）
