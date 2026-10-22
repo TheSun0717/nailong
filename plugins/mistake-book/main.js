@@ -49,6 +49,44 @@ module.exports.register = (host) => {
     return { text: `来，重做这道题：\n\n${it.text}${issues}\n\n下次复习：${next}（做完用 /wrong-add 记录新错因）` };
   }, '随机抽一道错题复习');
 
+  // 把到期错题剪成复习短片：一题一镜，看完自动顺延复习计划（不调模型，只配音 + 渲染）
+  host.chat.command('wrong-video', async () => {
+    const items = (await host.mistakes.list()) || [];
+    if (!items.length) throw new Error('错题本是空的，用 /wrong-add 加一条再试');
+    const meta = metaMap();
+    const due = items.filter((x) => !meta[x.id] || (meta[x.id].due || 0) <= Date.now());
+    const pool = (due.length ? due : items).slice(0, 3);
+    const steps = pool.map((it, i) => ({
+      title: `错题 ${i + 1}`,
+      body: (it.issues || []).length
+        ? '上次的问题是：' + it.issues.slice(0, 2).join('；')
+        : '先自己做一遍，想不起来再看提示。',
+      visual: { type: 'spotlight', data: { title: '先自己做', text: String(it.text).slice(0, 44) } },
+    }));
+    steps.push({
+      title: '明天见',
+      body: '按第一天、第三天、第七天、第十五天复习，忘了就再来一遍。',
+      visual: { type: 'spotlight', data: { title: '复习节奏', text: '1 / 3 / 7 / 15 天' }, camera: { from: 1, to: 1.05 } },
+    });
+    const r = await host.video.makeSpec({
+      title: `错题复习 · ${pool.length} 道`,
+      subject: '错题本 · 间隔复习',
+      intuition: '先自己做一遍，再对答案；想不起来就看提示。',
+      analogy: '就像把路重新走一遍，走多了就熟了。',
+      steps,
+    });
+    const m = metaMap();
+    pool.forEach((it) => {
+      const cur = m[it.id] || { stage: 0 };
+      const stage = Math.min((cur.stage || 0) + 1, INTERVALS.length - 1);
+      m[it.id] = { stage, due: Date.now() + INTERVALS[stage - 1] * DAY };
+    });
+    saveMeta(m);
+    return {
+      text: `复习短片做好啦：${r.title}\n\n${r.video}\n\n约 ${Math.round(r.duration)} 秒 · ${pool.length} 道错题已顺延到下次复习`,
+    };
+  }, '把到期的错题剪成复习短片');
+
   host.chat.command('wrong-due', async () => {
     const items = (await host.mistakes.list()) || [];
     const meta = metaMap();

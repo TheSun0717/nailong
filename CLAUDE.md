@@ -284,6 +284,7 @@ data/video|explain/      产物
 - [x] 手机端声明式插件（/bili、/xhs 打开系统浏览器）
 - [x] 内置插件随应用更新（版本比较后自动覆盖，保留状态）
 - [x] 预渲染进化动画（`data/evolution.json` → `--evolution` → `assets/evolution.mp4` → 首启播放）
+- [x] 错题复习短片（2.1.1）：`/wrong-video` → `host.video.makeSpec` 固定讲解卡渲染（0 token）→ 看完自动顺延 1/3/7/15 天；MP4 写入章节（每镜一章）
 - [x] 视频导演版（2.1.0）：11 种镜头（formula/board/spotlight/compare/camera + 既有 6 种）、字幕分句、渲染前 lint、`--specvideo` 回归、`--videostill` 抽帧验收；方法论文档 `docs/视频生成剖析与合并.md`，可复用 skill `~/.claude/skills/nailong-videocraft/`
 
 ## 14. 已知限制

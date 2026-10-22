@@ -115,6 +115,7 @@ function initPluginHost() {
       aiAsk: async (p) => ({ text: await ai.askDeepSeek(p, config) }),
       openExternal: (u) => { if (/^https?:\/\//i.test(u)) shell.openExternal(u); },
       webSearch: (platform, q) => webSearch(platform, q),
+      videoMakeSpec: async (spec, onProgress) => video.generate((spec && spec.title) || '复习', config, videoDir, onProgress || (() => {}), spec),
       videoMake: async (topic, onProgress) => {
         let spec = null;
         try { spec = teach.findCachedSpec(topic, config, null, teachCacheDir); } catch (_) {}
@@ -1353,6 +1354,28 @@ app.whenReady().then(() => {
     video.finish(process.argv[i + 1])
       .then((f) => { console.log('[muxonly] OK', f); app.exit(0); })
       .catch((e) => { console.error('[muxonly] ERROR', e.message); app.exit(1); });
+    return;
+  }
+  if (process.argv.includes('--wrongvideo')) {
+    (async () => {
+      try {
+        if (!loadMistakes().length) {
+          const now = Date.now();
+          saveMistakes([
+            { id: 'demo1', text: '解方程 x^2 = 4', issues: ['漏掉负根'], ts: now },
+            { id: 'demo2', text: '求 y = x^2 - 4x + 3 的最小值', issues: ['配方方向弄反'], ts: now - 1000 },
+            { id: 'demo3', text: '直角三角形两直角边 3 和 4，求斜边', issues: ['忘了勾股定理'], ts: now - 2000 },
+          ]);
+        }
+        initPluginHost();
+        const r = await pluginHost.runCommand('wrong-video', '', (p) => console.log('[wrongvideo]', p && p.pct, p && p.msg));
+        console.log('[wrongvideo]', JSON.stringify(r).slice(0, 600));
+        app.exit(r && r.ok ? 0 : 1);
+      } catch (e) {
+        console.error('[wrongvideo] ERR', e.message);
+        app.exit(1);
+      }
+    })();
     return;
   }
   if (process.argv.includes('--specvideo')) {

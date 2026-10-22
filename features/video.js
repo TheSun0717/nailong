@@ -461,10 +461,28 @@ function renderFrames(htmlPath, framesDir, totalMs, onProgress) {
   });
 }
 
+// 把每个镜头写成 MP4 章节，播放器里可以直接跳到某一步
+function writeChapters(dir, timeline) {
+  let data = null;
+  try { data = JSON.parse(fs.readFileSync(path.join(dir, 'storyboard.json'), 'utf8')); } catch { return null; }
+  if (!data || !Array.isArray(data.scenes)) return null;
+  const lines = [';FFMETADATA1'];
+  timeline.forEach((t, i) => {
+    const title = String((data.scenes[i] && data.scenes[i].title) || `第 ${i + 1} 段`).replace(/[=#;\n]/g, ' ').slice(0, 60);
+    lines.push('[CHAPTER]', 'TIMEBASE=1/1000', `START=${t.start}`, `END=${t.end}`, `title=${title}`);
+  });
+  const file = path.join(dir, 'chapters.txt');
+  fs.writeFileSync(file, lines.join('\n'), 'utf8');
+  return file;
+}
+
 function mux(dir, timeline, totalMs, outFile) {
   return new Promise((resolve, reject) => {
     const args = ['-y', '-framerate', String(FPS), '-i', path.join(dir, 'frames', 'f%05d.jpg')];
     timeline.forEach((t, i) => args.push('-i', path.join(dir, `s${i}.wav`)));
+
+    const chapters = writeChapters(dir, timeline);
+    if (chapters) args.push('-i', chapters);
 
     const delays = timeline.map((t, i) => `[${i + 1}:a]adelay=${t.start}|${t.start}[a${i}]`);
     const mix = timeline.map((_, i) => `[a${i}]`).join('') +
@@ -475,8 +493,10 @@ function mux(dir, timeline, totalMs, outFile) {
       '-vf', 'scale=1280:720:flags=lanczos',
       '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
       '-c:a', 'aac', '-b:a', '160k',
-      '-t', String(totalMs / 1000), '-movflags', '+faststart', outFile,
+      '-t', String(totalMs / 1000),
     );
+    if (chapters) args.push('-map_metadata', String(timeline.length + 1));
+    args.push('-movflags', '+faststart', outFile);
     const p = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
     let err = '';
     p.stderr.on('data', (d) => { err += d; if (err.length > 8000) err = err.slice(-4000); });

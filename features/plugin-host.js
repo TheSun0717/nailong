@@ -171,6 +171,8 @@ function createHost(manifest, dir) {
     },
     video: {
       async make(topic) { need('video'); return ctx.caps.videoMake(String(topic ?? ''), progress); },
+      // 用固定讲解卡渲染（不调模型）：错题复习短片等走这条
+      async makeSpec(spec) { need('video'); return ctx.caps.videoMakeSpec(spec, progress); },
     },
     teach: {
       async explain(topic) { need('teach'); return ctx.caps.teachExplain(String(topic ?? ''), progress); },

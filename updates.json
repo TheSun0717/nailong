@@ -1,21 +1,20 @@
 {
   "app": {
-    "version": "2.1.0",
+    "version": "2.1.1",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v2.1.0/nailong-Setup-2.1.0.exe",
-    "sha256": "af11bd0ed8fc566e31902cb0b14972e38d532b5c20abaabaddfa708447803966",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v2.1.1/nailong-Setup-2.1.1.exe",
+    "sha256": "82ddbc4f860fb6ff5fc7cb42c0004870933e3333abe74272ffceb38970d07a81",
     "notes": {
-      "summary": "奶龙 2.1：讲解视频会「导演」了——公式会变形，字幕会跟着念。",
+      "summary": "错题会变成复习短片：30 秒看完，复习日期自动往后顺延。",
       "items": [
-        "视频新增 5 种镜头：公式逐行变形、黑板板书、聚光卡、错解正解对照、电影感推近",
-        "字幕按句切换，不再整段糊在底部",
-        "渲染前自动检查空旁白/超长文案/缺图示",
-        "新增抽帧验收与固定讲解卡回归命令",
-        "更新器改用 cmd，安装完自动重启并修复桌面快捷方式（2.0.1 已修，这版内置）"
+        "新增 /wrong-video：把到期错题剪成带配音的复习短片（不花 token）",
+        "看完短片自动按 1/3/7/15 天顺延复习",
+        "视频写入章节，播放器可以直接跳到某一题",
+        "错题本插件 1.4.1，商店可独立更新"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.1.0/nailong-Setup-2.1.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.1.1/nailong-Setup-2.1.1.exe"
     ]
   },
   "plugins": [
@@ -31,28 +30,28 @@
         "whatHappens": "奶龙会说话，还会弹出一个分步说明卡片。",
         "ifFails": "在插件列表里把它关掉再打开；还不行就点「问题反馈」告诉作者。"
       },
-      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.0/hello-plugin-1.0.0.zip",
+      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.1.1/hello-plugin-1.0.0.zip",
       "sha256": "15b33001e8f2205b549a1672db1ab4bbfdf333c5a607e6def18e1499c09dda03",
       "mirrors": [
-        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.0/hello-plugin-1.0.0.zip"
+        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.1.1/hello-plugin-1.0.0.zip"
       ]
     },
     {
       "id": "mistake-book",
       "name": "错题本",
-      "version": "1.3.0",
+      "version": "1.4.1",
       "minAppVersion": "1.15.0",
       "description": "把错题收进来，随时翻看复习。",
       "intro": {
         "what": "它帮你把做错或没弄懂的题收进一个本子里，之后随时翻看。",
-        "how": "输入 /wrong-add 题目或错因；输入 /wrong 查看；/wrong-clear 清空。",
-        "whatHappens": "题目会按时间倒序保存在本机，/wrong 会列出来。",
+        "how": "输入 /wrong-add 加题，/wrong 查看，/wrong-review 抽题复习；/wrong-video 把到期错题剪成 30 秒复习短片。",
+        "whatHappens": "题目存在本机；/wrong-video 会生成一段带配音的短片，看完自动把复习时间往后顺延。",
         "ifFails": "检查命令后面有没有写内容；数据只在本机，换电脑需要重新添加。"
       },
-      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.0/mistake-book-1.3.0.zip",
-      "sha256": "adb9a991ea68162b161d6f94f8639ba017de85d38a3bb1c676fbfa4c3c18b2bf",
+      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.1.1/mistake-book-1.4.1.zip",
+      "sha256": "54f4b631ae0bc7de9e47bb4b942a73db5ad42dc04ea171489ed5952f96004f06",
       "mirrors": [
-        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.0/mistake-book-1.3.0.zip"
+        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.1.1/mistake-book-1.4.1.zip"
       ]
     },
     {
@@ -67,10 +66,10 @@
         "whatHappens": "奶龙会列出视频或笔记的标题、作者和热度，点「打开」就能看。",
         "ifFails": "检查网络；小红书需要在内置窗口登录一次；被安全验证时按页面提示操作后再试。"
       },
-      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.0/research-kit-1.1.0.zip",
+      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.1.1/research-kit-1.1.0.zip",
       "sha256": "d707233ed197e468d8017f3ebf50bcb8115f42b1eb09693d016c656242579d21",
       "mirrors": [
-        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.0/research-kit-1.1.0.zip"
+        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.1.1/research-kit-1.1.0.zip"
       ]
     },
     {
@@ -85,10 +84,10 @@
         "whatHappens": "奶龙会给你一份学习计划；/kb-stats 会列出你导入的资料。",
         "ifFails": "先在设置里填画像、导入资料；还不行就点问题反馈。"
       },
-      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.0/study-kit-1.0.0.zip",
+      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.1.1/study-kit-1.0.0.zip",
       "sha256": "0536d10961d4d558fec036b6b16daa5a8db2372d5a98b1691ddc09235a12a142",
       "mirrors": [
-        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.0/study-kit-1.0.0.zip"
+        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.1.1/study-kit-1.0.0.zip"
       ]
     },
     {
@@ -103,10 +102,10 @@
         "whatHappens": "讲解页会在独立窗口打开；视频会存到本机并告诉你路径。",
         "ifFails": "讲解页需要先配置大模型 Key；视频还需要 VoiceStudio 和 ffmpeg。失败时按提示检查。"
       },
-      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.0/teach-studio-1.1.0.zip",
+      "url": "https://github.com/TheSun0717/nailong/releases/download/v2.1.1/teach-studio-1.1.0.zip",
       "sha256": "fd4ef7f5a49ecf49696661d10b8900411b54814d6dff442e591fd669ea9b1de1",
       "mirrors": [
-        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.0.0/teach-studio-1.1.0.zip"
+        "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.1.1/teach-studio-1.1.0.zip"
       ]
     }
   ],
