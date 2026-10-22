@@ -1,7 +1,7 @@
 {
   "id": "mistake-book",
   "name": "错题本",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minAppVersion": "1.15.0",
   "description": "把错题收进来，随时翻看复习。",
   "intro": {
@@ -10,8 +10,17 @@
     "whatHappens": "题目会按时间倒序保存在本机，/wrong 会列出来。",
     "ifFails": "检查命令后面有没有写内容；数据只在本机，换电脑需要重新添加。"
   },
-  "permissions": ["chat", "settings", "ui"],
-  "capabilities": ["mistake.book"],
+  "permissions": [
+    "chat",
+    "mistakes",
+    "ui"
+  ],
+  "capabilities": [
+    "mistake.book"
+  ],
   "firstParty": true,
-  "entry": { "type": "module", "main": "main.js" }
+  "entry": {
+    "type": "module",
+    "main": "main.js"
+  }
 }

@@ -100,6 +100,9 @@ function initPluginHost() {
       kbAdd: async (text, meta) => kb.addText(meta && meta.name, text, meta || {}),
       kbList: async () => kb.list(),
       kbProfile: async () => config.profile || {},
+      mistakesList: async () => loadMistakes(),
+      mistakesAdd: async (text, issues) => { addMistake(text, issues); return true; },
+      mistakesClear: async () => { saveMistakes([]); return true; },
       teachExplain: async (topic, onProgress) => {
         const html = await teach.generate(topic, config, null, { sympyScript, python: pyExe, cacheDir: teachCacheDir, onProgress });
         fs.mkdirSync(explainDir, { recursive: true });
@@ -130,6 +133,27 @@ const ocrScript = app.isPackaged
 const VENV_PY = 'D:/nailong-tools/py/Scripts/python.exe';
 const pyExe = process.env.NAILONG_PYTHON || (fs.existsSync(VENV_PY) ? VENV_PY : 'python');
 const teachCacheDir = path.join(dataDir, 'teach-cache');
+const mistakesPath = path.join(dataDir, 'mistakes.json');
+
+function loadMistakes() {
+  try { return JSON.parse(fs.readFileSync(mistakesPath, 'utf8')); } catch { return []; }
+}
+function saveMistakes(items) {
+  try {
+    fs.mkdirSync(path.dirname(mistakesPath), { recursive: true });
+    fs.writeFileSync(mistakesPath, JSON.stringify(items.slice(0, 300), null, 2));
+  } catch {}
+}
+function addMistake(text, issues = []) {
+  const items = loadMistakes();
+  items.unshift({
+    id: String(Date.now()) + Math.random().toString(36).slice(2, 5),
+    text: String(text || '').slice(0, 400),
+    issues: (issues || []).slice(0, 5).map((x) => String(x).slice(0, 160)),
+    ts: Date.now(),
+  });
+  saveMistakes(items);
+}
 const sympyScript = app.isPackaged
   ? path.join(process.resourcesPath, 'tools', 'sympy_check.py')
   : path.join(__dirname, 'tools', 'sympy_check.py');
@@ -403,7 +427,7 @@ function registerIpc() {
       if (payload && payload.imagePath) {
         try { image = safePath(String(payload.imagePath)); } catch (_) {}
       }
-      const html = await teach.generate(text, config, image, { sympyScript, python: pyExe, cacheDir: teachCacheDir, onProgress });
+      const html = await teach.generate(text, config, image, { sympyScript, python: pyExe, cacheDir: teachCacheDir, onProgress, onIssues: ({ question, issues }) => addMistake(question, issues) });
       fs.mkdirSync(explainDir, { recursive: true });
       const file = path.join(explainDir, `explain-${Date.now()}.html`);
       fs.writeFileSync(file, html, 'utf8');
@@ -1022,6 +1046,27 @@ app.whenReady().then(() => {
       } catch (e) {
         console.error('[mistaketest] ERR', e.message);
         app.exit(2);
+      }
+    })();
+    return;
+  }
+  if (process.argv.includes('--videotest2')) {
+    const i = process.argv.indexOf('--videotest2');
+    const topic = process.argv[i + 1] || '勾股定理';
+    (async () => {
+      try {
+        await teach.generate(topic, config, null, {
+          sympyScript, python: pyExe, cacheDir: teachCacheDir,
+          onProgress: (p) => console.log('[v2-teach]', p.pct, p.msg),
+        });
+        const spec = teach.findCachedSpec(topic, config, null, teachCacheDir);
+        console.log('[videotest2] cachedSpec=', !!spec);
+        const res = await video.generate(topic, config, videoDir, (p) => console.log('[v2-video]', p.pct, p.msg), spec);
+        console.log('[videotest2] OK', JSON.stringify(res));
+        app.exit(0);
+      } catch (e) {
+        console.error('[videotest2] ERR', e.message);
+        app.exit(1);
       }
     })();
     return;

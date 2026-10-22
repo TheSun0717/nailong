@@ -12,6 +12,8 @@ const SOLVE_SYSTEM = `你是严谨的学科老师。解出题目并输出一张�
   "title": "标题",
   "subject": "学科",
   "question": "题目（原样或整理后）",
+  "intuition": "用一句大白话说清这题在干什么",
+  "analogy": "一个生活化的比喻，帮助理解",
   "given": ["已知条件1", "..."],
   "steps": [
     {
@@ -28,6 +30,7 @@ const SOLVE_SYSTEM = `你是严谨的学科老师。解出题目并输出一张�
 }
 
 要求：
+- 假设读者是小学生：术语第一次出现时用一句大白话解释；每步尽量配一个生活化比喻；不跳步。
 - 每一步都必须可验证；先写已知，再推导，最后给答案。
 - 如果题目带图，先根据图写出已知条件，再做。
 - visual 用来画示意图：
@@ -76,6 +79,8 @@ function normalizeSpec(spec) {
     title: String(s.title || '知识点讲解').slice(0, 80),
     subject: String(s.subject || '学习').slice(0, 20),
     question: String(s.question || '').slice(0, 400),
+    intuition: String(s.intuition || '').slice(0, 200),
+    analogy: String(s.analogy || '').slice(0, 200),
     given: (Array.isArray(s.given) ? s.given : []).slice(0, 8).map((x) => String(x).slice(0, 120)),
     steps,
     answer: String(s.answer || '').slice(0, 400),
@@ -211,7 +216,9 @@ function renderHtml(spec, issues = [], checkNote = '') {
   .panel { padding: 40px 44px 40px 20px; display: flex; flex-direction: column; justify-content: center; }
   .kicker { font-size: 13px; letter-spacing: 3px; color: #C08A17; margin-bottom: 10px; }
   h1 { font-size: 30px; line-height: 1.3; margin-bottom: 16px; }
-  .question { font-size: 13px; color: #8A7860; line-height: 1.6; margin-bottom: 18px; }
+  .question { font-size: 13px; color: #8A7860; line-height: 1.6; margin-bottom: 12px; }
+  .intuition { font-size: 14px; line-height: 1.6; color: #2E2419; background: #FFF0C8; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .analogy { font-size: 13px; line-height: 1.6; color: #8A5A00; margin-bottom: 14px; }
   .card { background: #FFFDF8; border: 1.5px solid rgba(58,42,26,.12); border-radius: 16px; padding: 20px 22px; min-height: 220px; box-shadow: 0 2px 0 rgba(58,42,26,.06); }
   .card h2 { font-size: 20px; margin-bottom: 10px; }
   .card p { font-size: 15px; line-height: 1.8; }
@@ -241,6 +248,8 @@ function renderHtml(spec, issues = [], checkNote = '') {
     <div class="kicker" id="kicker"></div>
     <h1 id="title"></h1>
     <div class="question" id="question"></div>
+    <div class="intuition" id="intuition"></div>
+    <div class="analogy" id="analogy"></div>
     <div class="card" id="card">
       <h2 id="step-title"></h2>
       <p id="step-body"></p>
@@ -269,6 +278,10 @@ function renderHtml(spec, issues = [], checkNote = '') {
   el('kicker').textContent = SPEC.subject;
   el('title').textContent = SPEC.title;
   el('question').textContent = SPEC.question;
+  el('intuition').textContent = SPEC.intuition ? '💡 一句话直觉：' + SPEC.intuition : '';
+  el('intuition').style.display = SPEC.intuition ? 'block' : 'none';
+  el('analogy').textContent = SPEC.analogy ? '🧸 打个比方：' + SPEC.analogy : '';
+  el('analogy').style.display = SPEC.analogy ? 'block' : 'none';
   el('pitfalls').innerHTML = (SPEC.pitfalls && SPEC.pitfalls.length)
     ? '<b>易错点：</b>' + SPEC.pitfalls.map((p) => '　• ' + p).join('<br>') : '';
   if (ISSUES && ISSUES.length) el('warn').textContent = '校验提示：' + ISSUES.join('；');
@@ -426,7 +439,7 @@ B：${JSON.stringify(b)}`,
   }
 }
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_TTL = 30 * 24 * 3600 * 1000;
 
 function cacheKey(q, config, imagePath) {
@@ -512,6 +525,9 @@ async function generate(topic, config, imagePath, opts = {}) {
   emit(95, '渲染讲解页…');
   const note = [check.note, dualNote].filter(Boolean).join(' · ');
   const issues = [...(verified.issues || []), ...extra];
+  if (issues.length && typeof opts.onIssues === 'function') {
+    try { opts.onIssues({ question: promptText, issues, spec: verified.spec }); } catch (_) {}
+  }
   if (opts.cacheDir) writeCache(opts.cacheDir, key, { spec: verified.spec, issues, note });
   return renderHtml(verified.spec, issues, note);
 }

@@ -3,14 +3,13 @@ module.exports.register = (host) => {
   host.chat.command('wrong-add', async (args) => {
     const text = String(args || '').trim();
     if (!text) throw new Error('请在 /wrong-add 后面写题目或错因');
-    const items = host.settings.get('items') || [];
-    items.unshift({ id: Date.now(), text, ts: Date.now() });
-    host.settings.set('items', items.slice(0, 200));
-    return { text: `已加入错题本（共 ${Math.min(items.length, 200)} 条）` };
+    await host.mistakes.add(text, []);
+    const items = await host.mistakes.list();
+    return { text: `已加入错题本（共 ${items.length} 条）` };
   }, '把题目或错因加入错题本');
 
   host.chat.command('wrong', async () => {
-    const items = host.settings.get('items') || [];
+    const items = (await host.mistakes.list()) || [];
     const panel = host.ui.panel('list', {
       title: `错题本（${items.length}）`,
       items: items.slice(0, 20).map((it) => ({
@@ -25,7 +24,7 @@ module.exports.register = (host) => {
   }, '查看错题本');
 
   host.chat.command('wrong-clear', async () => {
-    host.settings.set('items', []);
+    await host.mistakes.clear();
     return { text: '错题本已清空' };
   }, '清空错题本');
 };

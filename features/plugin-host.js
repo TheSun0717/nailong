@@ -178,6 +178,11 @@ function createHost(manifest, dir) {
     store: {
       async install(id) { need('store'); return ctx.caps.storeInstall(String(id)); },
     },
+    mistakes: {
+      async list() { need('mistakes'); return ctx.caps.mistakesList(); },
+      async add(text, issues) { need('mistakes'); return ctx.caps.mistakesAdd(String(text ?? ''), issues || []); },
+      async clear() { need('mistakes'); return ctx.caps.mistakesClear(); },
+    },
     ui: {
       panel(template, data) { need('ui'); return { template, data }; },
     },
