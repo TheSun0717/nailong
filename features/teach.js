@@ -39,9 +39,10 @@ const SOLVE_SYSTEM = `你是严谨的学科老师。解出题目并输出一张�
   - flow: {"nodes":["步骤A","步骤B","步骤C"]}
   - circle: {"r":"5","angle":"60","label":"r=5"}
   - numberline: {"min":-3,"max":3,"marks":[{"x":0,"label":"0"},{"x":2,"label":"2"}]}
+  - vectors: {"vectors":[{"label":"重力","angle":-90,"length":100},{"label":"拉力","angle":60,"length":80}]}（物理受力/速度，angle 为角度，length 为像素长度）
   - 不需要图就用 {"type":"none"}
 - 公式不要用 LaTeX 定界符；用普通文本。
-- 每个步骤的 visual 都必须给；至少两个步骤要有图示（triangle/axes/flow/circle/numberline），不能全是 none。
+- 每个步骤的 visual 都必须给；至少两个步骤要有图示（triangle/axes/flow/circle/numberline/vectors），不能全是 none。
 - checks 至少给一条对最终答案的数值验算（expr/equals 用普通运算符，^ 表示乘方，vars 可选）；没有可验算的式子就给空数组。
 - 只输出 JSON。`;
 
@@ -339,6 +340,23 @@ function renderHtml(spec, issues = [], checkNote = '') {
     }
     return s + '</svg>';
   }
+  function svgVectors(d) {
+    const cx = 230, cy = 210;
+    let s = '<svg viewBox="0 0 460 340">' +
+      '<line x1="60" y1="' + cy + '" x2="400" y2="' + cy + '" stroke="rgba(58,42,26,.25)" stroke-dasharray="4 5"/>' +
+      '<line x1="' + cx + '" y1="40" x2="' + cx + '" y2="300" stroke="rgba(58,42,26,.25)" stroke-dasharray="4 5"/>' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="4" fill="#3A2A1A"/>';
+    (d.vectors || []).slice(0, 6).forEach((v) => {
+      const ang = Number(v.angle || 0) * Math.PI / 180;
+      const len = Math.max(20, Math.min(150, Number(v.length) || 80));
+      const x2 = cx + Math.cos(ang) * len;
+      const y2 = cy - Math.sin(ang) * len;
+      s += '<line x1="' + cx + '" y1="' + cy + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '" stroke="#3B6EA5" stroke-width="3" class="draw"/>';
+      s += '<circle cx="' + x2.toFixed(1) + '" cy="' + y2.toFixed(1) + '" r="4" fill="#3B6EA5"/>';
+      if (v.label) s += '<text x="' + (x2 + 6).toFixed(1) + '" y="' + (y2 - 6).toFixed(1) + '" font-size="15" fill="#2E2419">' + v.label + '</text>';
+    });
+    return s + '</svg>';
+  }
   function svgNumberline(d) {
     const min = Number(d.min), max = Number(d.max);
     const lo = Number.isFinite(min) ? min : -5, hi = Number.isFinite(max) ? max : 5;
@@ -374,6 +392,7 @@ function renderHtml(spec, issues = [], checkNote = '') {
     else if (type === 'flow') html = svgFlow(v.data || {});
     else if (type === 'circle') html = svgCircle(v.data || {});
     else if (type === 'numberline') html = svgNumberline(v.data || {});
+    else if (type === 'vectors') html = svgVectors(v.data || {});
     if (!html) {
       const st = steps[i] || {};
       html = '<div style="font-size:22px;line-height:1.7;text-align:center;padding:20px">' +

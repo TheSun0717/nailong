@@ -253,14 +253,14 @@ data/video|explain/      产物
 - [x] 三栏工作台 + 商店左侧抽屉 + 窗口最小化/全屏
 - [x] 资料搜索合并（B站/小红书/知乎/豆瓣/贴吧/微博/牛客/CSDN/掘金）
 - [x] 插件自动路由（triggers + 查询清洗）
-- [x] 讲解页 v2（结构化解题 + 二次校验 + JSON 模式 + 双解一致性 + SVG 图示 + SymPy/勾股/三角形不等式 + 解题卡持久缓存）
+- [x] 讲解页 v2（结构化解题 + 二次校验 + JSON 模式 + 双解一致性 + SVG 图示（triangle/axes/flow/circle/numberline/vectors）+ SymPy/勾股/三角形不等式 + 解题卡持久缓存）
 - [x] 多轮上下文（最近 12 条历史交给模型）+ 图片多模态尝试
 - [x] 作品库（讲解页/视频重启后可再打开）
 - [x] safeStorage 加密 API Key（DPAPI，自动迁移旧明文）
 - [x] 能力工坊：声明式生成 + 五道闸 + 预览安装
 - [x] 插件任务进度 API（host.progress → 聊天进度条）
 - [x] 主界面 🧩/🎬 已切到插件命令（带进度，失败回退内置）
-- [x] 错题本插件（/wrong-add、/wrong、/wrong-clear）
+- [x] 错题本插件（/wrong-add、/wrong、/wrong-review、/wrong-stats、/wrong-remove、/wrong-clear）
 - [x] 商店能力图谱
 - [x] 视频复用解题缓存（端到端：讲解页 → 视频）
 - [x] 校验模型可单独配置

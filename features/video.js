@@ -18,7 +18,7 @@ JSON 结构：
 - 每个镜头 2 到 4 条 bullet，每条不超过 20 个汉字。
 - narration 是可直接朗读的口语中文，40 到 90 字；假设听众是小学生，多用生活比喻，少用术语（术语第一次出现要用大白话解释）；不要出现 Markdown、序号、括号符号、公式符号；数学表达式用中文念法。
 - 内容要准确、具体，不写空话。
-- visual 不能全部是 none：至少 3 个镜头必须有图示；数学/几何题优先 triangle/axes，步骤类用 flow；triangle 的 data 用 a/b/c/aLabel/bLabel/cLabel，axes 用 points 数组，flow 用 nodes 数组。
+- visual 不能全部是 none：至少 3 个镜头必须有图示；数学/几何题优先 triangle/axes，物理受力用 vectors，步骤类用 flow；triangle 的 data 用 a/b/c/aLabel/bLabel/cLabel，axes 用 points 数组，flow 用 nodes 数组。
 - 只输出 JSON。`;
 
 function extractJson(raw) {
@@ -132,6 +132,21 @@ function svgForVisual(v) {
       const py = Math.max(20, Math.min(300, 290 - (Number(p.y) + 5) * 20));
       s += '<circle cx="' + px + '" cy="' + py + '" r="5" fill="#E8A20A"/>';
       if (p.label) s += '<text x="' + (px + 8) + '" y="' + (py - 8) + '" font-size="16">' + esc(p.label) + '</text>';
+    });
+    return s + '</svg>';
+  }
+  if (type === 'vectors') {
+    const cx = 230, cy = 210;
+    let s = '<svg viewBox="0 0 460 340">' +
+      '<line x1="60" y1="' + cy + '" x2="400" y2="' + cy + '" stroke="rgba(58,42,26,.25)" stroke-dasharray="4 5"/>' +
+      '<line x1="' + cx + '" y1="40" x2="' + cx + '" y2="300" stroke="rgba(58,42,26,.25)" stroke-dasharray="4 5"/>';
+    (d.vectors || []).slice(0, 6).forEach((v) => {
+      const ang = Number(v.angle || 0) * Math.PI / 180;
+      const len = Math.max(20, Math.min(150, Number(v.length) || 80));
+      const x2 = cx + Math.cos(ang) * len;
+      const y2 = cy - Math.sin(ang) * len;
+      s += '<line class="draw" x1="' + cx + '" y1="' + cy + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '" stroke="#3B6EA5" stroke-width="3"/>';
+      if (v.label) s += '<text x="' + (x2 + 6).toFixed(1) + '" y="' + (y2 - 6).toFixed(1) + '" font-size="15">' + esc(v.label) + '</text>';
     });
     return s + '</svg>';
   }

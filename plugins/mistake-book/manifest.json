@@ -1,7 +1,7 @@
 {
   "id": "mistake-book",
   "name": "错题本",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "minAppVersion": "1.15.0",
   "description": "把错题收进来，随时翻看复习。",
   "intro": {
