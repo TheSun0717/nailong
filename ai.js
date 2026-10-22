@@ -55,8 +55,8 @@ function endpoint(config) {
   return base.endsWith('/chat/completions') ? base : base + '/chat/completions';
 }
 
-async function request(question, config, stream, systemPrompt, temperature, jsonMode) {
-  const body = JSON.parse(buildBody(question, config, stream, systemPrompt, temperature));
+async function request(question, config, stream, systemPrompt, temperature, jsonMode, extra = {}) {
+  const body = { ...JSON.parse(buildBody(question, config, stream, systemPrompt, temperature)), ...extra };
   if (jsonMode) {
     body.response_format = { type: 'json_object' };
     // 解题卡可能很长，给足输出长度，减少被截断成半截 JSON
@@ -71,7 +71,13 @@ async function request(question, config, stream, systemPrompt, temperature, json
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(stream ? 600000 : 300000),
   });
-  if (!res.ok) throw new Error(`DeepSeek ${res.status}`);
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.text()).slice(0, 300); } catch (_) {}
+    const err = new Error(`DeepSeek ${res.status}${detail ? ' ' + detail : ''}`);
+    err.status = res.status;
+    throw err;
+  }
   return res;
 }
 
@@ -85,8 +91,35 @@ async function askDeepSeek(question, config, systemPrompt, temperature, opts = {
   }
   const data = await res.json();
   const msg = data.choices?.[0]?.message || {};
-  // 推理模型可能把正文放在 reasoning_content 里
-  return msg.content || msg.reasoning_content || '吼吼，我脑子卡住啦';
+  // 推理模型可能把正文放在 reasoning_content 里（仅当里面确实像 JSON 时才用）
+  const content = String(msg.content || '');
+  const reasoning = String(msg.reasoning_content || '');
+  if (content.trim()) return content;
+  const at = reasoning.indexOf('{');
+  return at >= 0 ? reasoning.slice(at) : (reasoning || '吼吼，我脑子卡住啦');
+}
+
+// 结构化请求：返回正文/推理/结束原因，便于上层判断「是不是只输出了思考」
+async function askJsonRaw(question, config, systemPrompt, temperature = 0, opts = {}) {
+  const extras = opts.keepReasoning ? {} : { reasoning_effort: 'none' };
+  const once = async (useJson, useExtra) => {
+    const res = await request(question, config, false, systemPrompt, temperature, useJson, useExtra ? extras : {});
+    const data = await res.json();
+    const choice = (data.choices && data.choices[0]) || {};
+    const msg = choice.message || {};
+    return {
+      content: String(msg.content || ''),
+      reasoning: String(msg.reasoning_content || ''),
+      finishReason: String(choice.finish_reason || ''),
+      usage: data.usage || null,
+    };
+  };
+  try {
+    return await once(true, true);
+  } catch (e) {
+    // 供应商不认 reasoning_effort / json_object：退回不带的请求
+    return once(true, false).catch(() => once(false, false));
+  }
 }
 
 async function consumeSse(res, onDelta) {
@@ -199,4 +232,4 @@ async function answer(question, config) {
   }
 }
 
-module.exports = { answer, matchFixed, streamDeepSeek, streamChat, askDeepSeek, askWithImage, SYSTEM_PROMPT };
+module.exports = { answer, matchFixed, streamDeepSeek, streamChat, askDeepSeek, askJsonRaw, askWithImage, SYSTEM_PROMPT };

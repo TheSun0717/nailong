@@ -1309,6 +1309,36 @@ app.whenReady().then(() => {
     })();
     return;
   }
+  if (process.argv.includes('--explaintest')) {
+    const i = process.argv.indexOf('--explaintest');
+    const q = process.argv[i + 1] || '勾股定理';
+    (async () => {
+      try {
+        const r = await pluginHost.runCommand('explain', q, (x) => console.log('[explaintest]', x && x.pct, x && x.msg));
+        console.log('[explaintest]', JSON.stringify(r).slice(0, 400));
+        app.exit(r && r.ok ? 0 : 1);
+      } catch (e) {
+        console.error('[explaintest] ERR', e.message);
+        app.exit(1);
+      }
+    })();
+    return;
+  }
+  if (process.argv.includes('--jsonprobe')) {
+    const i = process.argv.indexOf('--jsonprobe');
+    const q = process.argv[i + 1] || '输出一个 JSON：{"ok":true}';
+    (async () => {
+      try {
+        const out = await ai.askJsonRaw(q, config, '你只输出 JSON。', 0);
+        console.log('[jsonprobe]', JSON.stringify({ contentLen: out.content.length, reasoningLen: out.reasoning.length, finish: out.finishReason, head: out.content.slice(0, 60) }));
+        app.exit(0);
+      } catch (e) {
+        console.error('[jsonprobe] ERR', e.message);
+        app.exit(1);
+      }
+    })();
+    return;
+  }
   if (process.argv.includes('--ttstest')) {
     const i = process.argv.indexOf('--ttstest');
     const text = process.argv[i + 1] || '你好呀，我是奶龙。';

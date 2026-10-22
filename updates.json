@@ -1,20 +1,20 @@
 {
   "app": {
-    "version": "2.2.1",
+    "version": "2.2.2",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v2.2.1/nailong-Setup-2.2.1.exe",
-    "sha256": "4946179e7f111e0d54c5e48652ae7764f48985fc769d6428a8ca33debe404e37",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v2.2.2/nailong-Setup-2.2.2.exe",
+    "sha256": "80fc2fc5a27bdaf39a31cecb33e132d3771ed83424c00296529dfd75bded0784",
     "notes": {
-      "summary": "讲题不再「没有解题卡」，进度条会真的动，商店空了也有回应。",
+      "summary": "讲题失败的真正原因修好了：推理不再吃掉输出预算。",
       "items": [
-        "解题卡生成：自动重试 3 次 + 修复被截断/带围栏的 JSON + 兼容推理模型输出",
-        "生成讲解页/视频时进度条持续缓动，不再卡住",
-        "商店没有插件时显示「这里空空如也哦」",
-        "奶龙配音加入可爱小孩音色风格（可在 config.json 调整 ttsVoice/ttsStyle）"
+        "结构化请求关闭推理（reasoning_effort=none），模型直接吐 JSON",
+        "万一只输出了思考过程，会自动压缩成解题卡（不重新解题）",
+        "失败时留下原始输出，方便下次定位",
+        "电磁感应/斜面电容/OCR 残缺题干三类硬题实测通过"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.2.1/nailong-Setup-2.2.1.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v2.2.2/nailong-Setup-2.2.2.exe"
     ]
   },
   "plugins": [

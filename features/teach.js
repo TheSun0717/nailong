@@ -8,6 +8,8 @@ let nativeImage = null;
 try { nativeImage = require('electron').nativeImage; } catch (_) {}
 const ai = require('../ai');
 
+const CONDENSE_SYSTEM = '你是 JSON 格式化助手。把用户给的解题过程整理成「解题卡 JSON」，只输出 JSON，不要解释、不要再次解题。步骤最多 4 步，每步正文不超过 80 字。';
+
 const SOLVE_SYSTEM = `你是严谨的学科老师。解出题目并输出一张「解题卡」JSON，只输出 JSON，不要 Markdown 围栏。
 
 结构：
@@ -150,7 +152,7 @@ async function solve(topic, config, imagePath, temperature = 0.2) {
 ${topic}`;
   const strictPrompt = `${SOLVE_SYSTEM}
 
-【重要】只输出一个 JSON 对象，从 { 开始、以 } 结束；不要代码围栏、不要解释、不要多余文字。
+【重要】只输出一个 JSON 对象，从 { 开始、以 } 结束；不要代码围栏、不要解释、不要思考过程。
 
 题目/知识点：
 ${topic}`;
@@ -159,30 +161,43 @@ ${topic}`;
   for (let attempt = 0; attempt < 3; attempt++) {
     const prompt = attempt === 0 ? basePrompt : strictPrompt;
     try {
+      let out;
       if (imagePath && attempt === 0) {
         try {
-          lastRaw = await ai.askWithImage(prompt, config, SOLVE_SYSTEM, imageData(imagePath), temperature);
+          const raw = await ai.askWithImage(prompt, config, SOLVE_SYSTEM, imageData(imagePath), temperature);
+          out = { content: raw, reasoning: '', finishReason: '' };
         } catch (_) {
-          lastRaw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, temperature, { json: true });
+          out = await ai.askJsonRaw(prompt, config, SOLVE_SYSTEM, temperature);
         }
       } else {
-        lastRaw = await ai.askDeepSeek(prompt, config, SOLVE_SYSTEM, attempt === 0 ? temperature : 0, { json: true });
+        out = await ai.askJsonRaw(prompt, config, SOLVE_SYSTEM, attempt === 0 ? temperature : 0);
       }
+      lastRaw = out.content || out.reasoning;
+      let spec = extractJson(out.content) || extractJson(out.reasoning);
+      // 只输出了思考过程/散文：把过程压缩成 JSON 再来一次（不重新解题）
+      if (!isSpec(spec) && String(out.reasoning || out.content).trim()) {
+        const condensePrompt = `${SOLVE_SYSTEM}
+
+下面是一段解题过程，请把它整理成「解题卡 JSON」，只输出 JSON。
+
+${String(out.reasoning || out.content).slice(0, 6000)}`;
+        const again = await ai.askJsonRaw(condensePrompt, config, CONDENSE_SYSTEM, 0);
+        spec = extractJson(again.content) || extractJson(again.reasoning);
+        if (!spec) lastRaw = again.content || again.reasoning || lastRaw;
+      }
+      if (isSpec(spec)) return normalizeSpec(spec);
+      lastError = `JSON 解析失败（finish=${out.finishReason || '?'}，正文 ${String(out.content).length} 字，思考 ${String(out.reasoning).length} 字）`;
     } catch (e) {
       lastError = e.message || String(e);
-      continue;
     }
-    const spec = extractJson(lastRaw);
-    if (isSpec(spec)) return normalizeSpec(spec);
-    lastError = 'JSON 解析失败';
   }
-  // 失败时把原始输出留一份，方便排查（只写临时目录，不打扰用户）
   try {
     const os = require('os');
     const dump = path.join(os.tmpdir(), `nailong-solve-fail-${Date.now()}.txt`);
     fs.writeFileSync(dump, String(lastRaw || lastError).slice(0, 20000), 'utf8');
+    fs.writeFileSync(dump.replace('.txt', '.meta.txt'), String(lastError), 'utf8');
   } catch (_) {}
-  throw new Error('模型没有返回解题卡（已自动重试 3 次）' + (lastError ? '：' + String(lastError).slice(0, 80) : ''));
+  throw new Error('模型没有返回解题卡（已自动重试 3 次）：' + String(lastError).slice(0, 120));
 }
 
 // 三角形图示自动追加勾股校验（只对数字标签生效）

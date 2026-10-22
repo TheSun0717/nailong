@@ -4,7 +4,7 @@ module.exports.register = (host) => {
     const topic = String(args || '').trim();
     if (!topic) throw new Error('请在 /explain 后面写知识点或题目');
     const r = await host.teach.explain(topic);
-    return { text: `讲解页做好啦，已经在独立窗口打开：${topic}`, openPath: r.path };
+    return { text: `讲解页做好啦，已经在独立窗口打开：${topic.slice(0, 32)}${topic.length > 32 ? '…' : ''}`, openPath: r.path };
   }, '生成交互讲解页，例如 /explain 勾股定理', ['讲解页', '做成讲解页', '详细讲解', '一步步讲', '讲讲这道', '讲一下这道', '讲解一下', '讲解这道', '详细讲讲', '解析一下这道']);
 
   host.chat.command('video', async (args) => {
