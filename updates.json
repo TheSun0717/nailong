@@ -1,20 +1,22 @@
 {
   "app": {
-    "version": "1.15.0",
+    "version": "1.16.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.15.0/nailong-Setup-1.15.0.exe",
-    "sha256": "3f1cde3bc50764957c3e5f2d45ea4d152399c4db011ddbc3c6692b11ba1ac0af",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.16.0/nailong-Setup-1.16.0.exe",
+    "sha256": "e5b8034fc0dad798281fef1f31330c7613b2a16092db55ada7b5d7b948d2c26d",
     "notes": {
-      "summary": "插件任务进度与内置插件更新。",
+      "summary": "插件生态六步补齐。",
       "items": [
-        "插件 host.progress → 聊天进度条",
-        "内置插件随应用版本自动更新",
-        "插件命令按钮预填 /命令",
-        "讲解进度阶段显示"
+        "主界面按钮切到插件命令（带进度）",
+        "手机端插件 /bili、/xhs",
+        "错题本插件",
+        "商店能力图谱",
+        "视频复用解题缓存",
+        "校验模型可单独配置"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.15.0/nailong-Setup-1.15.0.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.16.0/nailong-Setup-1.16.0.exe"
     ]
   },
   "plugins": [],
