@@ -185,7 +185,10 @@ data/video|explain/      产物
 - 主程序：完整 NSIS 包，不做差量；保留上一版安装包用于回滚。
 - 检查：启动 8 秒后、每 6 小时（主进程 `startUpdateWatcher`，发现新版用桌宠气泡/聊天通知）、设置里手动。
 - 流程：检查 → 弹更新日志（文字 + 可选预渲染动画）→ 用户点一次「更新」→ 下载校验 → 自动退出 → 静默安装 → 自动启动新版。
-- 安装细节（`main.js` 的 `applyUpdate`）：PowerShell 脚本先用 `/D=<当前安装目录>` 原地覆盖（保证桌面快捷方式仍然有效），失败再按 NSIS 默认目录装一次；装完修正桌面快捷方式并用新 exe 启动。路径带空格时跳过 `/D=`（NSIS 不接受引号）。
+- 安装细节（`main.js` 的 `applyUpdate`）：**用 cmd.exe 而不是 PowerShell**——GUI 进程（无控制台）启动的 powershell 会直接退出，脚本根本不执行；Electron 退出时 job 还会带走非 detached 子进程。做法：写一个纯 ASCII 的 `install-update.cmd`（路径走环境变量 `NAILONG_INSTALLER/EXE/DIR/LOG`，避开中文编码），`detached` 启动 → 等旧进程退出（ping 延时）→ `start /wait` 静默 `/S /D=<当前安装目录>` 原地安装（失败按默认目录再装一次）→ 启动新 exe。安装过程写 `%TEMP%\nailong-update\install.log`。
+- `/D=` 路径带空格时退回默认目录（NSIS 不接受引号）。
+- 桌面快捷方式：静默安装会把旧快捷方式删掉且不重建，所以每次启动 `ensureDesktopShortcut()`（wscript + `desktop-shortcut.vbs`，不用 PowerShell）自愈一次；更新脚本装完也会先跑一遍再启动。
+- 实测证据：`install.log` 记录 `start` → `install exit=0`（约 75 秒）→ 进程自动回来；`--update-install` 可直接复现整条链路。
 - 自检：`--updatetest`（下载 + SHA）、`--update-install <exe>`（安装 + 重启 + 快捷方式）、`--apply-update`（检查 + 下载 + 安装全链路）。
 - 进化动画：**发版时预渲染** 20–30 秒，随包分发；首启播放，可跳过；失败降级文字。
   - 文案在 `data/evolution.json`（version / kicker / scenes[icon,title,bullets,narration]），改文案不用改代码。

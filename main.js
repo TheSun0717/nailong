@@ -420,61 +420,68 @@ function toggleAutoLaunch(on) {
 }
 
 // ---------- 自动更新安装 ----------
-// PowerShell 脚本（纯 ASCII，路径通过参数传入，避免中文编码问题）：
-// 等旧进程退出 → 用 /D=<当前安装目录> 原地静默安装 → 失败再按默认目录试一次 → 修正桌面快捷方式 → 启动新版
-const PS_INSTALL = [
-  "$ErrorActionPreference = 'SilentlyContinue'",
-  '$log = Join-Path (Join-Path $env:TEMP "nailong-update") "install.log"',
-  'function Log([string]$m) { Add-Content -LiteralPath $log -Value ((Get-Date -Format "yyyy-MM-dd HH:mm:ss") + " " + $m) }',
-  'Start-Sleep -Seconds 2',
-  '$installer = $args[0]',
-  '$exePath = $args[1]',
-  '$installDir = $args[2]',
-  'if ($installDir) { $installDir = $installDir.Replace("/", "\\") }',
-  'Log ("start installer=" + $installer + " exe=" + $exePath + " dir=" + $installDir)',
-  '$procName = if ($exePath) { [IO.Path]::GetFileNameWithoutExtension($exePath) } else { "" }',
-  'for ($i = 0; $i -lt 60; $i++) {',
-  '  if (-not $procName -or -not (Get-Process -Name $procName)) { break }',
-  '  Start-Sleep -Milliseconds 500',
-  '}',
-  'function Invoke-Installer([string]$d) {',
-  '  if ($d) { return (Start-Process -FilePath $installer -ArgumentList "/S", ("/D=" + $d) -Wait -PassThru).ExitCode }',
-  '  return (Start-Process -FilePath $installer -ArgumentList "/S" -Wait -PassThru).ExitCode',
-  '}',
-  '$done = $false',
-  '# NSIS /D= cannot be quoted; if path has spaces, fall back to default install dir',
-  'if ($installDir -and ($installDir -notmatch " ")) {',
-  '  $code = Invoke-Installer $installDir',
-  '  Log ("in-place exit=" + $code)',
-  '  if ($code -eq 0 -and (Test-Path $exePath)) { $done = $true }',
-  '}',
-  'if (-not $done) {',
-  '  for ($i = 0; $i -lt 30; $i++) {',
-  '    if (-not $procName -or -not (Get-Process -Name $procName)) { break }',
-  '    Start-Sleep -Milliseconds 500',
-  '  }',
-  '  $code2 = Invoke-Installer ""',
-  '  Log ("default-dir exit=" + $code2)',
-  '  $altRoot = Join-Path $env:LOCALAPPDATA "Programs"',
-  '  $found = Get-ChildItem $altRoot -Recurse -Filter ($procName + ".exe") -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1',
-  '  if ($found) { $exePath = $found.FullName } else { Log "no default-dir exe found" }',
-  '}',
-  'Start-Sleep -Seconds 1',
-  'Log ("done=" + $done + " exe=" + $exePath + " exists=" + (Test-Path $exePath))',
-  'if (Test-Path $exePath) {',
-  '  try {',
-  '    $ws = New-Object -ComObject WScript.Shell',
-  '    $lnkPath = Join-Path ([Environment]::GetFolderPath("Desktop")) ($procName + ".lnk")',
-  '    $lnk = $ws.CreateShortcut($lnkPath)',
-  '    $lnk.TargetPath = $exePath',
-  '    $lnk.WorkingDirectory = Split-Path $exePath',
-  '    $lnk.IconLocation = $exePath + ",0"',
-  '    $lnk.Save()',
-  '  } catch {}',
-  '  Log ("launch " + $exePath)',
-  '  Start-Process -FilePath $exePath',
-  '}',
-];
+// 为什么不用 PowerShell：GUI 进程（无控制台）里启动的 powershell 会直接退出，脚本根本不执行；
+// 而 Electron 退出时 job 会带走子进程。cmd.exe 没这两个毛病，所以用它当更新器：
+// 等旧进程退出 → 原地 /S /D=<安装目录> 静默安装 → 失败按默认目录再来一次 → 启动新版本。
+// 路径全部走环境变量，.cmd 文件保持纯 ASCII，绕开中文编码问题（见 windows-bat-gbk-encoding）。
+// 用 wscript.exe（GUI 子系统，不需要控制台）重建桌面快捷方式：
+// 静默安装有时会把旧快捷方式删掉不重建，启动时自愈一次即可。
+const VBS_SHORTCUT = [
+  'Option Explicit',
+  'Dim ws, exe, name, path, lnk',
+  'Set ws = CreateObject("WScript.Shell")',
+  'exe = ws.Environment("Process")("NAILONG_EXE")',
+  'If Len(exe) = 0 Then WScript.Quit 1',
+  'name = ws.Environment("Process")("NAILONG_LNK")',
+  'path = ws.SpecialFolders("Desktop") & "\\" & name & ".lnk"',
+  'Set lnk = ws.CreateShortcut(path)',
+  'If lnk.TargetPath <> exe Or Len(lnk.WorkingDirectory) = 0 Then',
+  '  lnk.TargetPath = exe',
+  '  lnk.WorkingDirectory = ws.Environment("Process")("NAILONG_WORK")',
+  '  lnk.IconLocation = exe & ",0"',
+  '  lnk.Save',
+  'End If',
+].join('\r\n') + '\r\n';
+
+function writeShortcutVbs(dir) {
+  const file = path.join(dir, 'desktop-shortcut.vbs');
+  fs.writeFileSync(file, VBS_SHORTCUT, 'ascii');
+  return file;
+}
+
+function shortcutEnv(exePath) {
+  return {
+    NAILONG_EXE: exePath,
+    NAILONG_LNK: path.basename(exePath, '.exe'),
+    NAILONG_WORK: path.dirname(exePath),
+  };
+}
+
+function ensureDesktopShortcut() {
+  if (!app.isPackaged) return;
+  try {
+    const dir = path.join(app.getPath('temp'), 'nailong-update');
+    fs.mkdirSync(dir, { recursive: true });
+    const vbs = writeShortcutVbs(dir);
+    execFile('wscript.exe', [vbs], { windowsHide: true, env: { ...process.env, ...shortcutEnv(process.execPath) } }, () => {});
+  } catch {}
+}
+
+function buildUpdateCmd(installDir) {
+  const inPlace = !!installDir && !/\s/.test(installDir);
+  return [
+    '@echo off',
+    'echo [%date% %time%] start dir=%NAILONG_DIR% >> "%NAILONG_LOG%"',
+    'ping -n 4 127.0.0.1 >nul',
+    // start /wait：NSIS 是 GUI 程序，直接调用不会等它装完
+    inPlace ? 'start /wait "" "%NAILONG_INSTALLER%" /S /D=%NAILONG_DIR%' : 'start /wait "" "%NAILONG_INSTALLER%" /S',
+    'echo [%date% %time%] install exit=%errorlevel% >> "%NAILONG_LOG%"',
+    'if exist "%NAILONG_VBS%" wscript "%NAILONG_VBS%"',
+    'ping -n 2 127.0.0.1 >nul',
+    'if not "%NAILONG_EXE%"=="" if not exist "%NAILONG_EXE%" start /wait "" "%NAILONG_INSTALLER%" /S',
+    'if not "%NAILONG_EXE%"=="" start "" "%NAILONG_EXE%"',
+  ].join('\r\n') + '\r\n';
+}
 
 function applyUpdate(file, { trusted = false } = {}) {
   const target = path.resolve(String(file || ''));
@@ -483,14 +490,27 @@ function applyUpdate(file, { trusted = false } = {}) {
   if (!fs.existsSync(target)) return { ok: false, error: '安装包不存在' };
 
   fs.mkdirSync(dir, { recursive: true });
-  const ps1 = path.join(dir, 'install-update.ps1');
-  fs.writeFileSync(ps1, PS_INSTALL.join('\r\n'), 'utf8');
   const exePath = app.isPackaged ? process.execPath : '';
   const installDir = app.isPackaged ? path.dirname(process.execPath) : '';
+  const cmdFile = path.join(dir, 'install-update.cmd');
+  fs.writeFileSync(cmdFile, buildUpdateCmd(installDir), 'ascii');
+  const vbs = writeShortcutVbs(dir);
+
+  const env = {
+    ...process.env,
+    ...(exePath ? shortcutEnv(exePath) : {}),
+    NAILONG_INSTALLER: target,
+    NAILONG_EXE: exePath,
+    NAILONG_DIR: installDir,
+    NAILONG_LOG: path.join(dir, 'install.log'),
+    NAILONG_VBS: vbs,
+  };
   try {
-    spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps1, target, exePath, installDir], {
-      detached: true, stdio: 'ignore', windowsHide: true,
-    }).unref();
+    const child = spawn('cmd.exe', ['/c', cmdFile], { detached: true, stdio: 'ignore', windowsHide: true, env });
+    child.on('error', (e) => {
+      try { fs.writeFileSync(path.join(dir, 'spawn-error.txt'), String(e.message), 'utf8'); } catch {}
+    });
+    child.unref();
   } catch (e) {
     return { ok: false, error: e.message };
   }
@@ -1395,6 +1415,7 @@ app.whenReady().then(() => {
   // 全局快捷键：Ctrl+Alt+D 显示/隐藏奶龙
   const ok = globalShortcut.register('CommandOrControl+Alt+D', togglePet);
   if (!ok) console.warn('[奶龙] 快捷键 Ctrl+Alt+D 注册失败（可能被其他程序占用）');
+  ensureDesktopShortcut();
   maybeShowEvolution();
   startUpdateWatcher();
 });

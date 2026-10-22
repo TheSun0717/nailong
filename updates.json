@@ -3,7 +3,7 @@
     "version": "2.0.1",
     "minVersion": "1.0.0",
     "url": "https://github.com/TheSun0717/nailong/releases/download/v2.0.1/nailong-Setup-2.0.1.exe",
-    "sha256": "295cc0d4841d71c1f8dadde14d8d8fce6a935556a0e6838b35c55422492be5c5",
+    "sha256": "d09b97feb03fcd0fed148b39b3408ff1d5f326dd795652819cdb17755d54f542",
     "notes": {
       "summary": "修好自动更新：点一下，装完自己重开，桌面图标打开就是最新版。",
       "items": [
