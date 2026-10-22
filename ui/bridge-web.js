@@ -7,6 +7,7 @@
   const DEFAULT_CFG = {
     apiKey: '',
     model: 'deepseek-v4-pro',
+    verifyModel: '',
     baseUrl: 'https://api.deepseek.com',
     openAtLogin: false,
     hasSeenHint: true,
@@ -26,6 +27,27 @@
   }
 
   let config = { ...DEFAULT_CFG, ...read(CFG_KEY, {}) };
+
+  // 手机端内置的声明式插件（网页搜索通过系统浏览器完成）
+  const MOBILE_PLUGINS = [{
+    id: 'research-kit',
+    name: '资料搜索',
+    version: '1.1.0',
+    description: '用系统浏览器搜索 B 站 / 小红书。',
+    intro: {
+      what: '它让奶龙帮你打开 B 站或小红书的搜索结果。',
+      how: '输入 /bili 关键词 或 /xhs 关键词。',
+      whatHappens: '会打开系统浏览器显示搜索结果。',
+      ifFails: '检查浏览器是否可用；小红书需要先登录。',
+    },
+    permissions: ['chat', 'web'],
+    capabilities: [],
+    dependencies: {},
+    commands: [
+      { name: 'bili', description: '搜索 B 站', platform: 'bilibili', triggers: ['b站', 'bilibili', '公开课'] },
+      { name: 'xhs', description: '搜索小红书', platform: 'xiaohongshu', triggers: ['小红书', 'xhs'] },
+    ],
+  }];
 
   const ASSETS = {
     'avatar/nailong-face.webp': 'assets/avatar/nailong-face.webp',
@@ -201,12 +223,32 @@
     listKnowledge: async () => [],
     removeKnowledge: async () => false,
     searchBilibili: async () => ({ error: '手机版暂不支持联网补充资料' }),
-    listPlugins: async () => [],
-    pluginCommands: async () => [],
-    pluginStatus: async () => ({ loaded: [], commands: [] }),
-    runPluginCommand: async () => ({ ok: false, error: '手机版暂不支持插件' }),
-    setPluginEnabled: async () => false,
+    listPlugins: async () => MOBILE_PLUGINS.map((p) => ({ ...p, enabled: true, compatible: true })),
+    pluginCommands: async () => MOBILE_PLUGINS.flatMap((p) => (p.commands || []).map((c) => ({
+      name: c.name, pluginId: p.id, pluginName: p.name, description: c.description || '',
+    }))),
+    pluginStatus: async () => ({ loaded: MOBILE_PLUGINS.map((p) => ({ id: p.id, name: p.name, version: p.version })), commands: [] }),
+    runPluginCommand: async (name, args) => {
+      const q = String(args || '').trim();
+      const plugin = MOBILE_PLUGINS[0];
+      const cmd = (plugin.commands || []).find((c) => c.name === name);
+      if (!cmd) return { ok: false, error: '手机版没有这个命令' };
+      if (!q) return { ok: false, error: '请在命令后面输入关键词' };
+      const url = cmd.platform === 'xiaohongshu'
+        ? 'https://www.xiaohongshu.com/search_result?keyword=' + encodeURIComponent(q)
+        : 'https://search.bilibili.com/all?keyword=' + encodeURIComponent(q);
+      try {
+        const a = document.createElement('a');
+        a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.click();
+      } catch {}
+      return { ok: true, pluginId: plugin.id, result: { text: `已在浏览器打开${cmd.platform === 'xiaohongshu' ? '小红书' : 'B 站'}搜索：${q}
+${url}` } };
+    },
+    setPluginEnabled: async () => true,
     removePlugin: async () => false,
+    storeList: async () => ({ ok: true, items: MOBILE_PLUGINS.map((p) => ({ ...p, compatible: true })) }),
+    storeInstall: async () => ({ ok: true }),
+    onPluginProgress: () => {},
     onPetSay: () => {},
     onPluginNotify: () => {},
     openExternal: (url) => { try { window.open(String(url), '_blank'); return true; } catch { return false; } },

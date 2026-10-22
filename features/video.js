@@ -80,8 +80,14 @@ function audioDuration(file) {
   });
 }
 
-async function storyboard(topic, config) {
-  const raw = await ai.askDeepSeek(String(topic || '').trim(), config, STORY_SYSTEM, 0.6);
+async function storyboard(topic, config, verifiedSpec) {
+  const extra = verifiedSpec
+    ? `
+
+【已校验的解题卡】请严格使用下面的步骤与答案，不要重新求解：
+${JSON.stringify({ title: verifiedSpec.title, steps: verifiedSpec.steps, answer: verifiedSpec.answer })}`
+    : '';
+  const raw = await ai.askDeepSeek(String(topic || '').trim() + extra, config, STORY_SYSTEM, 0.6);
   const data = extractJson(raw);
   if (!data || !Array.isArray(data.scenes) || !data.scenes.length) {
     throw new Error('分镜脚本没生成成功，再试一次');
@@ -304,7 +310,7 @@ async function finish(dir) {
   return mux(dir, timeline, totalMs, path.join(dir, 'video.mp4'));
 }
 
-async function generate(topic, config, workDir, onProgress = () => {}) {
+async function generate(topic, config, workDir, onProgress = () => {}, verifiedSpec = null) {
   onProgress({ stage: 'tts', pct: 2, msg: '检查语音服务…' });
   if (!(await ensureTts())) {
     throw new Error('语音服务没启动：请先打开 VoiceStudio，等它就绪后再试');
@@ -315,7 +321,7 @@ async function generate(topic, config, workDir, onProgress = () => {}) {
   fs.mkdirSync(dir, { recursive: true });
 
   onProgress({ stage: 'script', pct: 4, msg: '正在写分镜脚本…' });
-  const data = await storyboard(topic, config);
+  const data = await storyboard(topic, config, verifiedSpec);
   fs.writeFileSync(path.join(dir, 'storyboard.json'), JSON.stringify(data, null, 2), 'utf8');
 
   const durations = [];

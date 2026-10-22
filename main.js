@@ -111,7 +111,11 @@ function initPluginHost() {
       aiAsk: async (p) => ({ text: await ai.askDeepSeek(p, config) }),
       openExternal: (u) => { if (/^https?:\/\//i.test(u)) shell.openExternal(u); },
       webSearch: (platform, q) => webSearch(platform, q),
-      videoMake: async (topic, onProgress) => video.generate(topic, config, videoDir, onProgress || (() => {})),
+      videoMake: async (topic, onProgress) => {
+        let spec = null;
+        try { spec = teach.findCachedSpec(topic, config, null, teachCacheDir); } catch (_) {}
+        return video.generate(topic, config, videoDir, onProgress || (() => {}), spec);
+      },
       storeInstall: async () => ({ ok: false, error: '商店安装将在下一版开放' }),
     },
   });
@@ -133,6 +137,7 @@ const sympyScript = app.isPackaged
 const DEFAULT_CONFIG = {
   apiKey: '', // 不预置 Key：每位用户在自己的电脑上填写（公开仓库不能带凭证）
   model: 'deepseek-v4-pro',
+  verifyModel: '',
   baseUrl: 'https://api.deepseek.com',
   openAtLogin: true,
   hasSeenHint: false,
@@ -1001,6 +1006,21 @@ app.whenReady().then(() => {
         app.exit(rows.length ? 0 : 1);
       } catch (e) {
         console.error('[webtest] ERR', e.message);
+        app.exit(2);
+      }
+    })();
+    return;
+  }
+  if (process.argv.includes('--mistaketest')) {
+    (async () => {
+      try {
+        const a = await pluginHost.runCommand('wrong-add', '勾股定理忘了开平方');
+        const b = await pluginHost.runCommand('wrong', '');
+        console.log('[mistaketest] add=', JSON.stringify(a).slice(0, 200));
+        console.log('[mistaketest] list=', JSON.stringify(b).slice(0, 300));
+        app.exit(a.ok && b.ok ? 0 : 1);
+      } catch (e) {
+        console.error('[mistaketest] ERR', e.message);
         app.exit(2);
       }
     })();

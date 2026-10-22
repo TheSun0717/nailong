@@ -181,6 +181,7 @@ async function correct(spec, failures, config) {
 
 async function verify(spec, config) {
   try {
+    const vcfg = config.verifyModel ? { ...config, model: config.verifyModel } : config;
     const raw = await ai.askDeepSeek(
       `${VERIFY_SYSTEM}\n\n解题卡：\n${JSON.stringify(spec)}`, config, VERIFY_SYSTEM, 0, { json: true });
     const v = extractJson(raw);
@@ -410,13 +411,14 @@ function normAnswer(a) {
 
 async function arbitrate(a, b, config) {
   try {
+    const vcfg = config.verifyModel ? { ...config, model: config.verifyModel } : config;
     const raw = await ai.askDeepSeek(
       `两位老师独立解题，得到了不同的答案。请以阅卷老师的标准判断哪一版正确，并输出修正后的完整解题卡 JSON（结构同前）。
 
 A：${JSON.stringify(a)}
 
 B：${JSON.stringify(b)}`,
-      config, SOLVE_SYSTEM, 0, { json: true });
+      vcfg, SOLVE_SYSTEM, 0, { json: true });
     const s = extractJson(raw);
     return isSpec(s) ? normalizeSpec(s) : null;
   } catch (_) {
@@ -429,7 +431,7 @@ const CACHE_TTL = 30 * 24 * 3600 * 1000;
 
 function cacheKey(q, config, imagePath) {
   const h = crypto.createHash('sha256');
-  h.update(CACHE_VERSION + '|' + String(config.model || '') + '|' + String(q).replace(/\s+/g, ' ').trim().toLowerCase());
+  h.update(CACHE_VERSION + '|' + String(config.model || '') + '|' + String(config.verifyModel || '') + '|' + String(q).replace(/\s+/g, ' ').trim().toLowerCase());
   if (imagePath) {
     try { h.update(fs.readFileSync(imagePath)); } catch (_) {}
   }
@@ -454,6 +456,16 @@ function writeCache(dir, key, payload) {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, key + '.json'), JSON.stringify({ ...payload, ts: Date.now() }));
   } catch (_) {}
+}
+
+function findCachedSpec(topic, config, imagePath, cacheDir) {
+  if (!cacheDir) return null;
+  try {
+    const hit = readCache(cacheDir, cacheKey(String(topic || ''), config, imagePath));
+    return hit && hit.spec ? hit.spec : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 async function generate(topic, config, imagePath, opts = {}) {
@@ -504,4 +516,4 @@ async function generate(topic, config, imagePath, opts = {}) {
   return renderHtml(verified.spec, issues, note);
 }
 
-module.exports = { generate, solve, verify, renderHtml };
+module.exports = { generate, solve, verify, renderHtml, findCachedSpec };

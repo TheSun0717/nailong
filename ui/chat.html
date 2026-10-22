@@ -713,6 +713,8 @@
       <input id="base-url" placeholder="https://api.deepseek.com">
       <label>模型（可留空）</label>
       <input id="model-input" placeholder="deepseek-chat">
+      <label>校验模型（可选，留空同主模型）</label>
+      <input id="verify-model" placeholder="例如一个更便宜的模型">
       <div class="btns">
         <button id="cancel-key">取消</button>
         <button id="save-key">保存</button>
@@ -1545,8 +1547,22 @@
   }
 
   $('#send').onclick = send;
-  $('#explain-btn').onclick = explain;
-  $('#video-btn').onclick = makeVideo;
+  async function runViaPlugin(name, fallback) {
+    const q = $('#input').value.trim();
+    if (!q) { toast(name === 'explain' ? '先在输入框里写下知识点或题目' : '先写下知识点'); return; }
+    let cmds = [];
+    try { cmds = await window.nailong.pluginCommands(); } catch (_) {}
+    if (Array.isArray(cmds) && cmds.some((c) => c.name === name)) {
+      $('#input').value = '';
+      autosize();
+      addMsg('me', q);
+      runPluginCommand(name, q);
+      return;
+    }
+    fallback();
+  }
+  $('#explain-btn').onclick = () => runViaPlugin('explain', explain);
+  $('#video-btn').onclick = () => runViaPlugin('video', makeVideo);
   window.nailong.onVideoProgress((p) => {
     if (typeof window.__videoProgress === 'function') window.__videoProgress(p);
   });
@@ -1613,6 +1629,7 @@
   async function openSettings() {
     $('#api-key').value = currentConfig.apiKey || '';
     $('#model-input').value = currentConfig.model || 'deepseek-chat';
+    $('#verify-model').value = currentConfig.verifyModel || '';
     $('#base-url').value = currentConfig.baseUrl || 'https://api.deepseek.com';
     $('#xhs-consent').value = currentConfig.xhsConsent || '';
     $('#pet-scale').value = currentConfig.petScale || 1;
@@ -1641,8 +1658,9 @@
   async function saveApiSettings() {
     const apiKey = $('#api-key').value.trim();
     const model = $('#model-input').value.trim() || 'deepseek-chat';
+    const verifyModel = $('#verify-model').value.trim();
     const baseUrl = $('#base-url').value.trim() || 'https://api.deepseek.com';
-    await window.nailong.setConfig({ apiKey, model, baseUrl });
+    await window.nailong.setConfig({ apiKey, model, verifyModel, baseUrl });
     currentConfig = await window.nailong.getConfig();
     return apiKey;
   }
@@ -1880,8 +1898,33 @@
       d.className = 'tip';
       d.textContent = '商店暂时没有插件。';
       box.appendChild(d);
-      return;
     }
+
+    // 能力图谱
+    try {
+      const installedAll = await window.nailong.listPlugins();
+      const cap = document.createElement('div');
+      cap.className = 'plugin-item';
+      const ct = document.createElement('div');
+      ct.className = 'plugin-head';
+      const cn = document.createElement('span');
+      cn.className = 'plugin-name';
+      cn.textContent = '🕸 能力图谱';
+      ct.appendChild(cn);
+      const cw = document.createElement('div');
+      cw.className = 'plugin-what';
+      const lines = (installedAll || []).map((p) => {
+        const caps = (p.capabilities || []).join('、') || '命令';
+        const perms = (p.permissions || []).join('/');
+        const deps = Object.keys(p.dependencies || {});
+        const missing = deps.filter((d) => !(installedAll || []).some((x) => x.id === d));
+        return `${p.name}：${caps}（权限 ${perms}）${missing.length ? ' · 缺少依赖 ' + missing.join('、') : ''}`;
+      });
+      cw.textContent = lines.length ? lines.join('\n') : '还没有安装插件';
+      cw.style.whiteSpace = 'pre-line';
+      cap.append(ct, cw);
+      box.appendChild(cap);
+    } catch (_) {}
 
     for (const it of items) {
       const cur = (installed || []).find((p) => p.id === it.id);
