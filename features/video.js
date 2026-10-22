@@ -313,6 +313,13 @@ function buildHtml(data, timeline, totalMs) {
   @keyframes draw { to { stroke-dashoffset: 0; } }
   .sub { position: absolute; left: 84px; right: 84px; bottom: 58px; font-size: 20px; line-height: 1.55; color: #8A7860; }
   .bar { position: absolute; left: 0; bottom: 0; height: 6px; width: 0; background: #F2A81D; }
+  .pv { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; align-items: center;
+    gap: 12px; width: 70%; padding: 10px 16px; border-radius: 16px; background: rgba(46,36,25,.86); color: #FFF6E4;
+    font-size: 13px; z-index: 50; }
+  .pv button { width: 30px; height: 30px; border-radius: 50%; border: none; background: #F2A81D; color: #2E2419;
+    font-size: 13px; cursor: pointer; }
+  .pv input[type=range] { flex: 1; accent-color: #F2A81D; }
+  .pv span { width: 48px; text-align: right; font-variant-numeric: tabular-nums; }
   /* 2.1 语义镜头 */
   .v-formula, .v-board { display: flex; flex-direction: column; gap: 16px; font-family: Consolas, "Cascadia Mono", monospace;
     font-size: 30px; color: #2E2419; }
@@ -341,6 +348,11 @@ function buildHtml(data, timeline, totalMs) {
   <div id="scenes">${scenesHtml}</div>
   <p class="sub" id="sub"></p>
   <div class="bar" id="bar"></div>
+  <div class="pv" id="pv" hidden>
+    <button id="pv-play">▶</button>
+    <input id="pv-range" type="range" min="0" max="${totalMs}" value="0">
+    <span id="pv-time">0.0s</span>
+  </div>
 <script>
   const TIMELINE = ${JSON.stringify(timeline)};
   const TOTAL = ${totalMs};
@@ -429,6 +441,41 @@ function buildHtml(data, timeline, totalMs) {
     document.getElementById('counter').textContent =
       String(idx + 1).padStart(2, '0') + ' / ' + String(TIMELINE.length).padStart(2, '0');
   };
+  // 预览模式（#preview）：不渲染 MP4 也能拖动时间轴看效果
+  if (location.hash === '#preview') {
+    const pv = document.getElementById('pv');
+    const btn = document.getElementById('pv-play');
+    const rangeEl = document.getElementById('pv-range');
+    const tEl = document.getElementById('pv-time');
+    pv.hidden = false;
+    let playing = false;
+    let startMs = 0;
+    let startAt = 0;
+    let raf = null;
+    const tick = (now) => {
+      if (!playing) return;
+      const ms = startMs + (now - startAt);
+      const at = Math.min(ms, TOTAL);
+      window.__renderAt(at);
+      rangeEl.value = String(at);
+      tEl.textContent = (at / 1000).toFixed(1) + 's';
+      if (at >= TOTAL) { playing = false; btn.textContent = '▶'; return; }
+      raf = requestAnimationFrame(tick);
+    };
+    btn.onclick = () => {
+      if (playing) { playing = false; btn.textContent = '▶'; cancelAnimationFrame(raf); return; }
+      if (Number(rangeEl.value) >= TOTAL) rangeEl.value = '0';
+      playing = true;
+      btn.textContent = '❚❚';
+      startMs = Number(rangeEl.value);
+      startAt = performance.now();
+      raf = requestAnimationFrame(tick);
+    };
+    rangeEl.oninput = () => {
+      window.__renderAt(Number(rangeEl.value));
+      tEl.textContent = (Number(rangeEl.value) / 1000).toFixed(1) + 's';
+    };
+  }
   window.__renderAt(0);
 </script>
 </body></html>`;

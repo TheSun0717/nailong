@@ -208,6 +208,14 @@
     clip-path: polygon(0 0, 0 100%, 100% 50%);
   }
   .meta { font-size: 10px; color: var(--ink-soft); opacity: .75; margin-top: 5px; padding: 0 4px; }
+  .copy-btn { align-self: flex-start; margin-top: 2px; border: none; background: none; color: var(--ink-soft);
+    font-size: 10.5px; cursor: pointer; padding: 2px 4px; opacity: .65; }
+  .copy-btn:hover { opacity: 1; color: var(--ink); }
+  .msg.me .copy-btn { align-self: flex-end; }
+  .figs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .figs img { width: 84px; height: 84px; object-fit: cover; border-radius: 10px;
+    border: 1.5px solid var(--line); background: #fff; cursor: pointer; }
+  .figs img:hover { border-color: var(--yellow-deep); transform: translateY(-1px); }
   .actions { display: flex; gap: 4px; margin-top: 2px; opacity: 0; transition: opacity .15s; }
   .msg:hover .actions { opacity: 1; }
   .actions button {
@@ -349,6 +357,8 @@
   }
   #file-panel .frow button:hover { background: var(--cream-deep); }
   #file-panel .fempty { font-size: 12px; color: var(--ink-soft); padding: 4px 2px; }
+  #file-panel .file-row[draggable="true"] { cursor: grab; }
+  #input-shell.drop-hover { border-color: var(--yellow-deep) !important; background: #FFF9E6; box-shadow: 0 0 0 3px rgba(255,201,60,.25); }
 
   .file-item { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
   .file-item span { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -397,6 +407,9 @@
   #send:hover { filter: brightness(1.03); }
   #send:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--yellow-deep); }
   #send:disabled { opacity: .45; cursor: default; transform: none; box-shadow: 0 3px 0 var(--yellow-deep); }
+  #stop { width: 34px; height: 34px; border-radius: 12px; border: 2px solid var(--ink);
+    background: #FFF1F0; color: #C0392B; font-size: 12px; cursor: pointer; box-shadow: 0 3px 0 rgba(58,42,26,.18); }
+  #stop:hover { filter: brightness(1.02); }
 
   /* 插件商店：从左侧长出的抽屉 */
   #plugins-modal {
@@ -618,6 +631,7 @@
         <div id="input-shell">
           <textarea id="input" rows="1" placeholder="和奶龙说点什么…"></textarea>
         </div>
+        <button id="stop" title="暂停思考" hidden>■</button>
         <button id="send" title="发送（Enter）">➤</button>
       </div>
     </main>
@@ -626,8 +640,6 @@
       <button class="rail-btn" id="rail-store" title="插件商城">🛍</button>
       <button class="rail-btn" id="rail-workshop" title="能力工坊">🛠</button>
       <button class="rail-btn" id="study-btn" title="学习助手">🎓</button>
-      <button class="rail-btn" id="explain-btn" title="把输入框里的题做成讲解页">🧩</button>
-      <button class="rail-btn" id="video-btn" title="生成讲解视频">🎬</button>
       <div class="rail-sep"></div>
       <button class="rail-btn" id="settings-btn" title="设置">⚙</button>
       <button class="rail-btn" id="rail-update" title="检查更新">🔄</button>
@@ -805,7 +817,7 @@
         <button class="ptab" data-tab="store">商店</button>
       </div>
       <div id="plugin-list" class="plugin-list"></div>
-      <div class="tip">在输入框里输入 <b>/命令</b> 也能直接运行。更多插件开发中。</div>
+      <div class="tip">插件装好就能用：在对话里说出你的需求，奶龙会自动调用合适的插件。</div>
       <div class="btns"><button id="plugins-close">关闭</button></div>
     </div>
   </div>
@@ -846,6 +858,31 @@
   let meAvatarUrl = DEFAULT_ME;
   let currentConfig = null;
   let busy = false;
+  let currentStreamId = null;
+  let pluginCmds = [];
+  const HEAVY_CMDS = ['video', 'explain'];
+
+  async function loadPluginCmds() {
+    try { pluginCmds = (await window.nailong.pluginCommands()) || []; } catch (_) { pluginCmds = []; }
+  }
+
+  // 用对话触发重插件（讲解页/视频）：命中 triggers 就直接跑，不用点按钮
+  function pickHeavyIntent(q) {
+    for (const name of HEAVY_CMDS) {
+      const c = pluginCmds.find((x) => x.name === name);
+      if (!c) continue;
+      const trig = (c.triggers || []).find((t) => String(q).includes(t));
+      if (trig) return { name: c.name, triggers: c.triggers || [], trigger: trig };
+    }
+    return null;
+  }
+
+  function cleanIntentQuery(q, triggers) {
+    let s = String(q);
+    (triggers || []).forEach((t) => { s = s.split(t).join(' '); });
+    return s.replace(/帮我|帮忙|请|麻烦|给我|一下|做个|做成|生成|来个|来一段|吧|呢|啊|的/g, ' ')
+      .replace(/\s+/g, ' ').trim();
+  }
   let tabs = [];
   let activeId = null;
   let emptyArtUrl = '';
@@ -1043,7 +1080,26 @@
     }
     refreshFiles();
     renderHistoryList();
+    loadPluginCmds();
     $('#input').focus();
+  }
+
+  // 每条消息右下角一个「复制」：用户和奶龙的都能复制
+  function addCopyButton(stack, getText) {
+    if (stack.querySelector('.copy-btn')) return;
+    const b = document.createElement('button');
+    b.className = 'copy-btn';
+    b.textContent = '复制';
+    b.onclick = async (e) => {
+      e.stopPropagation();
+      const text = typeof getText === 'function' ? getText() : getText;
+      try {
+        await navigator.clipboard.writeText(String(text || ''));
+        b.textContent = '已复制';
+        setTimeout(() => { b.textContent = '复制'; }, 1200);
+      } catch { toast('复制失败'); }
+    };
+    stack.appendChild(b);
   }
 
   function renderMessage(tab, who, text, opts = {}) {
@@ -1082,6 +1138,7 @@
 
     stack.appendChild(bub);
     stack.appendChild(meta);
+    if (!opts.typing && text) addCopyButton(stack, text);
     if (who !== 'me' && !opts.typing && text) addNoteAction(stack, text);
     wrap.appendChild(av);
     wrap.appendChild(stack);
@@ -1114,8 +1171,11 @@
       if (tab.title === '新任务') { tab.title = tabTitleFrom(text); renderTabBar(); }
       saveTabs();
       addNoteAction(st.wrap.querySelector('.stack'), text);
+      addCopyButton(st.wrap.querySelector('.stack'), text);
     }
     busy = false;
+    currentStreamId = null;
+    $('#stop').hidden = true;
     $('#send').disabled = false;
     $('#input').focus();
     if (tab.id === activeId) scrollBottom();
@@ -1154,7 +1214,13 @@
       scrollBottom();
     }
 
-    if (p.error) {
+    if (p.aborted) {
+      st.bubble.classList.remove('streaming');
+      const partial = (st.text || '').trim();
+      st.bubble.innerHTML = renderMd(partial ? partial + '\n\n（已暂停）' : '（已暂停思考，可以重新发消息啦）');
+      finishStream(p.id, st, partial || null);
+      toast('已暂停，可以直接输入新问题');
+    } else if (p.error) {
       st.bubble.classList.remove('streaming');
       st.bubble.innerHTML = renderMd(`呜…我走神了（${p.error}），主人稍后再试一次好不好？`);
       finishStream(p.id, st, null);
@@ -1180,6 +1246,18 @@
     const q = input.value.trim();
     if (!q) return;
 
+    const heavy = pickHeavyIntent(q);
+    if (heavy) {
+      const arg = cleanIntentQuery(q, heavy.triggers);
+      if (arg.length >= 2) {
+        input.value = '';
+        autosize();
+        addMsg('me', q);
+        runPluginCommand(heavy.name, arg);
+        return;
+      }
+    }
+
     const slash = /^\/([a-z0-9-]+)\s*([\s\S]*)$/i.exec(q);
     if (slash) {
       input.value = '';
@@ -1199,6 +1277,8 @@
     const wrap = addMsg('nailong', '', { typing: true, tab });
     const id = 's' + Date.now() + Math.random().toString(36).slice(2, 6);
     pendingStreams.set(id, { wrap, bubble: wrap.querySelector('.bubble'), text: '', started: false, q, tabId: tab.id });
+    currentStreamId = id;
+    $('#stop').hidden = false;
     window.nailong.askStream(id, q, tab.history.slice(-12));
     window.nailong.autoPlugin(q).then((auto) => {
       if (auto && auto.ok && Array.isArray(auto.used) && auto.used.length) renderAutoPlugin(auto.used, tab);
@@ -1367,17 +1447,9 @@
     const img = names.find((n) => /\.(png|jpe?g|webp|bmp)$/i.test(n));
     if (!img) return;
     lastImageName = img;
-    toast('正在识别图片里的文字…');
-    const res = await window.nailong.ocrFile(img);
-    if (typeof res === 'string' && res.trim()) {
-      const input = $('#input');
-      input.value = res.trim();
-      autosize();
-      input.focus();
-      toast('识别完成，可以直接发送，或点 🧩 生成讲解页');
-    } else {
-      toast('没认出文字：' + ((res && res.error) || '换个更清晰的图片试试'));
-    }
+    toast('正在识别图片…');
+    const stack = document.querySelector('.msg.me .stack');
+    await analyzeImage(img, stack);
   }
 
   function addFileMsg(names) {
@@ -1410,6 +1482,7 @@
     meta.textContent = now();
     stack.appendChild(bub);
     stack.appendChild(meta);
+    if (!opts.typing && text) addCopyButton(stack, text);
     wrap.appendChild(av);
     wrap.appendChild(stack);
     const tab = activeTab();
@@ -1434,6 +1507,12 @@
     for (const f of files) {
       const row = document.createElement('div');
       row.className = 'file-row';
+      row.draggable = true;
+      row.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('application/x-nailong-file', f.name);
+        e.dataTransfer.setData('text/plain', f.name);
+        e.dataTransfer.effectAllowed = 'copy';
+      });
       const name = document.createElement('span');
       name.className = 'fname';
       name.textContent = f.name;
@@ -1452,6 +1531,84 @@
       box.appendChild(row);
     }
   }
+
+  // 图片分析：OCR 文本 + 抠出来的插图
+  async function analyzeImage(fileName, stack) {
+    let res = null;
+    try { res = await window.nailong.imageAnalyze(fileName); } catch (_) {}
+    if (res && res.ok) {
+      const text = String(res.text || '').trim();
+      if (text) {
+        const input = $('#input');
+        input.value = (input.value + '\n' + text).trim();
+        autosize();
+        input.focus();
+      }
+      if (res.figures && res.figures.length && stack) {
+        const box = document.createElement('div');
+        box.className = 'figs';
+        res.figures.forEach((f) => {
+          const im = document.createElement('img');
+          im.src = f.url;
+          im.title = '点开：' + f.name;
+          im.onclick = () => window.nailong.openLocal(f.path);
+          box.appendChild(im);
+        });
+        stack.appendChild(box);
+        toast(`认出文字，还抠出 ${res.figures.length} 张图`);
+      } else {
+        toast(text ? '文字已放进输入框' : '没认出文字，换个更清晰的图片试试');
+      }
+      return res;
+    }
+    toast('图片分析失败：' + ((res && res.error) || '未知错误'));
+    return null;
+  }
+
+  // 把文件从左侧拖进输入框：图片先 OCR，文档直接抽文本
+  async function useFileInChat(fileName) {
+    const input = $('#input');
+    if (!fileName) return;
+    const isImg = /\.(png|jpe?g|webp|bmp|gif)$/i.test(fileName);
+    if (isImg) {
+      lastImageName = fileName;
+      toast('正在识别图片…');
+      const st = activeTab().pane.lastElementChild;
+      await analyzeImage(fileName, st ? st.querySelector('.stack') : null);
+      return;
+    }
+    toast('正在读取文件…');
+    let res = null;
+    try { res = await window.nailong.fileText(fileName); } catch (_) {}
+    if (res && res.ok) {
+      const body = String(res.text || '').slice(0, 6000);
+      input.value = (input.value + '\n【文件：' + fileName + '】\n' + body).trim();
+      autosize();
+      input.focus();
+      toast('文件内容已放进输入框');
+    } else {
+      toast('读不出这个文件：' + ((res && res.error) || '格式不支持'));
+    }
+  }
+
+  (function wireFileDrop() {
+    const shell = $('#input-shell');
+    if (!shell) return;
+    shell.addEventListener('dragover', (e) => {
+      if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('application/x-nailong-file')) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        shell.classList.add('drop-hover');
+      }
+    });
+    shell.addEventListener('dragleave', () => shell.classList.remove('drop-hover'));
+    shell.addEventListener('drop', (e) => {
+      e.preventDefault();
+      shell.classList.remove('drop-hover');
+      const name = e.dataTransfer.getData('application/x-nailong-file') || e.dataTransfer.getData('text/plain');
+      if (name) useFileInChat(name);
+    });
+  })();
 
   /* ---------- 作品库 ---------- */
   async function renderArtifacts() {
@@ -1561,8 +1718,6 @@
     }
     fallback();
   }
-  $('#explain-btn').onclick = () => runViaPlugin('explain', explain);
-  $('#video-btn').onclick = () => runViaPlugin('video', makeVideo);
   window.nailong.onVideoProgress((p) => {
     if (typeof window.__videoProgress === 'function') window.__videoProgress(p);
   });
@@ -1726,6 +1881,10 @@
     } catch (_) { /* 静默失败 */ }
   }
 
+  $('#stop').onclick = async () => {
+    if (!currentStreamId) return;
+    await window.nailong.abortStream(currentStreamId);
+  };
   $('#check-update').onclick = checkUpdate;
   $('#update-later').onclick = () => $('#update-modal').classList.remove('open');
 
@@ -1816,20 +1975,6 @@
 
       const actions = document.createElement('div');
       actions.className = 'plugin-actions';
-      cmds.filter((c) => c.pluginId === p.id).forEach((c) => {
-        const b = document.createElement('button');
-        b.className = 'plugin-cmd';
-        b.textContent = '/' + c.name;
-        b.title = c.description || '';
-        b.onclick = () => {
-          closePlugins();
-          const input = $('#input');
-          input.value = '/' + c.name + ' ';
-          autosize();
-          input.focus();
-        };
-        actions.appendChild(b);
-      });
       const toggle = document.createElement('button');
       toggle.textContent = p.enabled ? '停用' : '启用';
       toggle.onclick = async () => {
@@ -1861,11 +2006,9 @@
   }
 
   async function renderStore(box) {
-    box.textContent = '加载中…';
-    let r;
-    try { r = await window.nailong.storeList(); } catch (e) { r = { ok: false, error: e.message }; }
-    if (!r || !r.ok) { box.textContent = '商店加载失败：' + ((r && r.error) || '网络问题'); return; }
-
+    // 先用上次的缓存立即出画面，再后台刷新；网络慢也不会像「点了没反应」
+    const paint = async (r) => {
+    if (!r || !r.ok) return;
     box.innerHTML = '';
     const workshop = document.createElement('div');
     workshop.className = 'plugin-item plugin-off';
@@ -1973,6 +2116,25 @@
       item.append(head, what, actions);
       box.appendChild(item);
     }
+    };
+
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem('storeCache') || 'null'); } catch (_) {}
+    if (cached && Array.isArray(cached.items) && cached.items.length) {
+      box.textContent = '';
+      paint({ ok: true, items: cached.items });
+    } else {
+      box.textContent = '正在加载商店…';
+    }
+    let r;
+    try { r = await window.nailong.storeList(); } catch (e) { r = { ok: false, error: e.message }; }
+    if (!r || !r.ok) {
+      if (!cached) box.textContent = '商店加载失败：' + ((r && r.error) || '网络问题') + '（点「商店」再试一次）';
+      else toast('商店刷新失败，先显示上次的列表');
+      return;
+    }
+    try { localStorage.setItem('storeCache', JSON.stringify({ ts: Date.now(), items: r.items })); } catch (_) {}
+    paint(r);
   }
 
   async function runPluginCommand(name, args = '') {
@@ -2003,6 +2165,12 @@
     if (r.panel) addAction(wrap.querySelector('.stack'), '查看结果', () => showPanel(r.panel));
     if (r.openPath && window.nailong.openArtifact) {
       addAction(wrap.querySelector('.stack'), '打开文件', () => window.nailong.openArtifact(r.openPath));
+    }
+    if (r.previewDir && window.nailong.previewVideo) {
+      addAction(wrap.querySelector('.stack'), '预览（可拖时间轴）', () => window.nailong.previewVideo(r.previewDir));
+    }
+    if (r.videoPath) {
+      addAction(wrap.querySelector('.stack'), '打开视频', () => window.nailong.openVideo(r.videoPath));
     }
     tab.history.push({ who: 'nailong', text: r.text || ('插件完成：' + name), ts: Date.now() });
     saveTabs();
@@ -2062,7 +2230,12 @@
   $('#rail-workshop').onclick = () => openWorkshop();
   $('#win-min').onclick = () => window.nailong.minimize();
   document.querySelectorAll('.ptab').forEach((b) => {
-    b.onclick = () => { pluginTab = b.dataset.tab; renderPlugins(); };
+    b.onclick = () => {
+      pluginTab = b.dataset.tab;
+      document.querySelectorAll('.ptab').forEach((x) => x.classList.toggle('active', x === b));
+      $('#plugin-list').textContent = pluginTab === 'store' ? '正在加载商店…' : '加载中…';
+      renderPlugins();
+    };
   });
   $('#plugins-close').onclick = closePlugins;
   $('#panel-close').onclick = () => $('#panel-modal').classList.remove('open');

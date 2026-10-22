@@ -140,13 +140,13 @@ function createHost(manifest, dir) {
     id: manifest.id,
     version: manifest.version,
     chat: {
-      command(name, handler, description = '') {
+      command(name, handler, description = '', triggers = []) {
         need('chat');
         const cmd = String(name || '').toLowerCase();
         if (!COMMAND_RE.test(cmd)) throw new Error('命令名只能是小写字母/数字/连字符');
         if (registry.has(cmd)) throw new Error(`命令已存在：${cmd}`);
         if (typeof handler !== 'function') throw new Error('命令处理函数无效');
-        registry.set(cmd, { pluginId: manifest.id, pluginName: manifest.name, description, handler });
+        registry.set(cmd, { pluginId: manifest.id, pluginName: manifest.name, description, triggers: Array.isArray(triggers) ? triggers : [], handler });
       },
     },
     pet: {
@@ -224,6 +224,7 @@ function commands() {
     pluginId: c.pluginId,
     pluginName: c.pluginName,
     description: c.description,
+    triggers: c.triggers || [],
   }));
 }
 

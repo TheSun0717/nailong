@@ -121,7 +121,7 @@ async function streamDeepSeek(question, config, onDelta, systemPrompt) {
 }
 
 // 多轮对话流式：messages = [{role, content}, ...]
-async function streamChat(messages, config, onDelta, systemPrompt, temperature) {
+async function streamChat(messages, config, onDelta, systemPrompt, temperature, opts = {}) {
   const msgs = systemPrompt
     ? [{ role: 'system', content: systemPrompt }, ...messages]
     : messages;
@@ -137,7 +137,7 @@ async function streamChat(messages, config, onDelta, systemPrompt, temperature) 
       temperature: typeof temperature === 'number' ? temperature : 1.0,
       stream: true,
     }),
-    signal: AbortSignal.timeout(600000),
+    signal: opts.signal || AbortSignal.timeout(600000),
   });
   if (!res.ok) throw new Error(`DeepSeek ${res.status}`);
   if (!res.body || !res.body.getReader) {

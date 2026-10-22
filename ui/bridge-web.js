@@ -6,7 +6,7 @@
   const CONV_KEY = 'nailong.conv';
   const DEFAULT_CFG = {
     apiKey: '',
-    model: 'deepseek-v4-pro',
+    model: 'deepseek-flash',
     verifyModel: '',
     baseUrl: 'https://api.deepseek.com',
     openAtLogin: false,

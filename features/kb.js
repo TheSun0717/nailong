@@ -267,4 +267,4 @@ async function ensureSeeds(dir) {
   }
 }
 
-module.exports = { init, importFiles, list, remove, search, chunkText, tokenize, ensureSeeds, addText };
+module.exports = { init, importFiles, list, remove, search, chunkText, tokenize, ensureSeeds, addText, extractText };

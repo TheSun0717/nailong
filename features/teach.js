@@ -216,6 +216,7 @@ async function verify(spec, config) {
 function renderHtml(spec, issues = [], checkNote = '', originalImage = '') {
   const safeSpec = JSON.stringify(spec).replace(/</g, '\\u003c');
   const safeIssues = JSON.stringify(issues).replace(/</g, '\\u003c');
+  const safeOriginal = JSON.stringify(String(originalImage || '')).replace(/</g, '\\u003c');
   return `<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:">

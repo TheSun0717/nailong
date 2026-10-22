@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('nailong', {
   ask: (q) => ipcRenderer.invoke('ai-ask', q),
   askStream: (id, q, history) => ipcRenderer.send('ai-ask-stream', { id, q, history }),
   onStream: (cb) => ipcRenderer.on('ai-stream', (_e, p) => cb(p)),
+  abortStream: (id) => ipcRenderer.invoke('ai-abort', id),
 
   // 会话
   loadConversation: () => ipcRenderer.invoke('conv-load'),
@@ -28,6 +29,7 @@ contextBridge.exposeInMainWorld('nailong', {
   generateVideo: (text) => ipcRenderer.invoke('video-generate', text),
   onVideoProgress: (cb) => ipcRenderer.on('video-progress', (_e, p) => cb(p)),
   openVideo: (file) => ipcRenderer.invoke('video-open', file),
+  previewVideo: (dir) => ipcRenderer.invoke('video-preview', dir),
   importStudyFiles: () => ipcRenderer.invoke('kb-import'),
   listKnowledge: () => ipcRenderer.invoke('kb-list'),
   removeKnowledge: (id) => ipcRenderer.invoke('kb-remove', id),
@@ -41,8 +43,11 @@ contextBridge.exposeInMainWorld('nailong', {
   // 文件
   pickFile: () => ipcRenderer.invoke('file-pick'),
   listFiles: () => ipcRenderer.invoke('file-list'),
+  fileText: (name) => ipcRenderer.invoke('file-text', name),
   openFile: (name) => ipcRenderer.invoke('file-open', name),
   ocrFile: (name) => ipcRenderer.invoke('ocr-file', name),
+  imageAnalyze: (name) => ipcRenderer.invoke('image-analyze', name),
+  openLocal: (p) => ipcRenderer.invoke('open-local', p),
   deleteFile: (name) => ipcRenderer.invoke('file-delete', name),
   renameFile: (oldName, newName) => ipcRenderer.invoke('file-rename', oldName, newName),
 

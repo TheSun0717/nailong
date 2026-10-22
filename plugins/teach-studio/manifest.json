@@ -1,7 +1,7 @@
 {
   "id": "teach-studio",
   "name": "讲解工坊",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "minAppVersion": "1.6.0",
   "description": "把知识点做成交互讲解页和讲解视频，插件版。",
   "intro": {

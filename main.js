@@ -162,7 +162,7 @@ const sympyScript = app.isPackaged
 
 const DEFAULT_CONFIG = {
   apiKey: '', // 不预置 Key：每位用户在自己的电脑上填写（公开仓库不能带凭证）
-  model: 'deepseek-v4-pro',
+  model: 'deepseek-flash',
   verifyModel: '',
   baseUrl: 'https://api.deepseek.com',
   openAtLogin: true,
@@ -190,6 +190,9 @@ if (!gotSingleLock) {
 }
 
 let config = loadConfig();
+// 统一模型：历史配置里的 deepseek-v4-pro 一律迁到 flash
+if (/v4-?pro/i.test(String(config.model || ''))) { config.model = 'deepseek-flash'; saveConfig(); }
+if (/v4-?pro/i.test(String(config.verifyModel || ''))) { config.verifyModel = 'deepseek-flash'; saveConfig(); }
 let petWin = null;
 let chatWin = null;
 let fullWin = null;
@@ -539,6 +542,37 @@ function startUpdateWatcher() {
   if (timer.unref) timer.unref();
 }
 
+// 文件名安全解析（只允许 filesDir 下的文件）
+function safeFile(name) {
+  const full = path.resolve(filesDir, String(name || ''));
+  if (!full.startsWith(path.resolve(filesDir) + path.sep)) throw new Error('非法文件名');
+  return full;
+}
+
+// 图片深度分析（IPC 与 CLI 共用）
+function analyzeImageFile(name) {
+  return new Promise((resolve) => {
+    let file;
+    try { file = safeFile(name); } catch (e) { resolve({ ok: false, error: e.message }); return; }
+    const figDir = path.join(filesDir, 'figures');
+    try { fs.mkdirSync(figDir, { recursive: true }); } catch {}
+    execFile(pyExe, [ocrScript, file, '--figures', figDir], { encoding: 'utf8', timeout: 180000 },
+      (err, stdout) => {
+        if (err) { resolve({ ok: false, error: err.message }); return; }
+        try {
+          const val = JSON.parse(String(stdout).trim());
+          if (Array.isArray(val)) { resolve({ ok: true, text: val.join('\n'), figures: [] }); return; }
+          if (val.error) { resolve({ ok: false, error: val.error }); return; }
+          const figures = (val.figures || []).map((n) => {
+            const full = path.join(figDir, n);
+            return { name: n, path: full, url: pathToFileURL(full).href };
+          });
+          resolve({ ok: true, text: (val.text || []).join('\n'), figures });
+        } catch { resolve({ ok: false, error: '识别结果解析失败' }); }
+      });
+  });
+}
+
 // ---------- IPC ----------
 function registerIpc() {
   ipcMain.handle('asset-url', (_e, rel) => assetUrl(rel));
@@ -547,8 +581,18 @@ function registerIpc() {
 
   ipcMain.handle('ai-ask', (_e, q) => ai.answer(q, config));
 
+  // 暂停思考：前端点「暂停」时中止这次流式请求，已生成的内容保留
+  const streamAborts = new Map();
+  ipcMain.handle('ai-abort', (_e, id) => {
+    const c = streamAborts.get(String(id || ''));
+    if (c) { try { c.abort(); } catch {} }
+    return true;
+  });
+
   ipcMain.on('ai-ask-stream', async (event, { id, q, history }) => {
     const send = (p) => { if (!event.sender.isDestroyed()) event.sender.send('ai-stream', { id, ...p }); };
+    const controller = new AbortController();
+    streamAborts.set(String(id), controller);
     const fixed = ai.matchFixed(q);
     if (fixed) { send({ delta: fixed }); send({ done: true }); return; }
     if (!config.apiKey) {
@@ -573,10 +617,13 @@ function registerIpc() {
       if (!msgs.length || msgs[msgs.length - 1].content !== question) {
         msgs.push({ role: 'user', content: question });
       }
-      await ai.streamChat(msgs, config, (delta) => send({ delta }), systemPrompt);
+      await ai.streamChat(msgs, config, (delta) => send({ delta }), systemPrompt, undefined, { signal: controller.signal });
       send({ done: true });
     } catch (e) {
-      send({ error: e.message || String(e) });
+      if (controller.signal.aborted) send({ aborted: true });
+      else send({ error: e.message || String(e) });
+    } finally {
+      streamAborts.delete(String(id));
     }
   });
 
@@ -658,6 +705,22 @@ function registerIpc() {
     }
   });
   ipcMain.handle('video-open', (_e, file) => { try { shell.openPath(String(file)); return true; } catch { return false; } });
+  // 预览窗口：加载已渲染工程的 video.html，带播放/拖拽时间轴（不重新渲染）
+  ipcMain.handle('video-preview', (_e, dir) => {
+    try {
+      const target = path.resolve(String(dir || ''));
+      if (!target.startsWith(path.resolve(videoDir) + path.sep)) return { ok: false, error: '非法路径' };
+      const html = path.join(target, 'video.html');
+      if (!fs.existsSync(html)) return { ok: false, error: '还没有预览文件' };
+      const win = new BrowserWindow({
+        width: 1280, height: 760, title: '奶龙视频预览', backgroundColor: '#FFFBF2',
+        webPreferences: { sandbox: true, contextIsolation: true },
+      });
+      win.setMenuBarVisibility(false);
+      win.loadFile(html, { hash: 'preview' });
+      return { ok: true };
+    } catch (e) { return { ok: false, error: e.message }; }
+  });
 
   ipcMain.handle('bili-search', async (_e, q) => {
     try { return await bili.search(q); } catch (e) { return { error: e.message || String(e) }; }
@@ -694,6 +757,16 @@ function registerIpc() {
     return kb.importFiles(r.filePaths, { school: profile.school || '', level: profile.level || '' });
   });
   ipcMain.handle('kb-list', () => kb.list());
+  // 把左侧文件拖进对话：读出纯文本放进输入框
+  ipcMain.handle('file-text', async (_e, name) => {
+    try {
+      const p = safePath(String(name || ''));
+      const text = await kb.extractText(p);
+      return { ok: true, text: String(text || '').slice(0, 20000) };
+    } catch (e) {
+      return { ok: false, error: e.message || String(e) };
+    }
+  });
   ipcMain.handle('kb-remove', (_e, id) => kb.remove(id));
 
   ipcMain.handle('conv-load', () => {
@@ -776,6 +849,19 @@ function registerIpc() {
   });
 
   // 图片 OCR：本地 RapidOCR（需要系统 Python + rapidocr_onnxruntime）
+  // 图片深度分析：OCR 文本 + 自动抠出图里的插图（OpenCV）
+  ipcMain.handle('image-analyze', (_e, name) => analyzeImageFile(name));
+
+  // 打开本机文件（限定在奶龙数据目录内）
+  ipcMain.handle('open-local', (_e, p) => {
+    try {
+      const target = path.resolve(String(p || ''));
+      if (!target.startsWith(path.resolve(userDataDir) + path.sep)) return { ok: false, error: '非法路径' };
+      shell.openPath(target);
+      return { ok: true };
+    } catch (e) { return { ok: false, error: e.message }; }
+  });
+
   ipcMain.handle('ocr-file', (_e, name) => new Promise((resolve) => {
     let file;
     try { file = safePath(name); } catch (e) { resolve({ error: e.message }); return; }
@@ -1221,6 +1307,21 @@ app.whenReady().then(() => {
     })();
     return;
   }
+  if (process.argv.includes('--imageanalyze')) {
+    const i = process.argv.indexOf('--imageanalyze');
+    analyzeImageFile(process.argv[i + 1] || '').then((r) => {
+      console.log('[imageanalyze]', JSON.stringify({ ok: r.ok, error: r.error, text: (r.text || '').slice(0, 80), figures: (r.figures || []).map((f) => f.name) }));
+      app.exit(r.ok ? 0 : 1);
+    });
+    return;
+  }
+  if (process.argv.includes('--intent')) {
+    const i = process.argv.indexOf('--intent');
+    const q = process.argv[i + 1] || '';
+    console.log('[intent]', JSON.stringify(pluginHost.matchIntent(q)));
+    app.exit(0);
+    return;
+  }
   if (process.argv.includes('--autotest')) {
     (async () => {
       try {
@@ -1390,6 +1491,27 @@ app.whenReady().then(() => {
       console.error('[specvideo] ERR', e.message);
       app.exit(1);
     }
+    return;
+  }
+  if (process.argv.includes('--videopreview')) {
+    const i = process.argv.indexOf('--videopreview');
+    const dir = path.resolve(process.argv[i + 1] || '');
+    (async () => {
+      try {
+        const win = new BrowserWindow({
+          width: 1280, height: 760, show: false, backgroundColor: '#FFFBF2',
+          webPreferences: { sandbox: true, contextIsolation: true, backgroundThrottling: false },
+        });
+        await win.loadFile(path.join(dir, 'video.html'), { hash: 'preview' });
+        await new Promise((r) => setTimeout(r, 1200));
+        await win.webContents.executeJavaScript('document.getElementById("pv-range").value = 5000; document.getElementById("pv-range").dispatchEvent(new Event("input"))');
+        await new Promise((r) => setTimeout(r, 500));
+        const img = await win.webContents.capturePage();
+        fs.writeFileSync(path.join(__dirname, 'shots', 'video-preview.png'), img.toPNG());
+        console.log('[videopreview] shots/video-preview.png');
+        app.exit(0);
+      } catch (e) { console.error('[videopreview] ERR', e.message); app.exit(1); }
+    })();
     return;
   }
   if (process.argv.includes('--videostill')) {
