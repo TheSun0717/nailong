@@ -1,19 +1,19 @@
 {
   "app": {
-    "version": "1.17.1",
+    "version": "1.18.0",
     "minVersion": "1.0.0",
-    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.17.1/nailong-Setup-1.17.1.exe",
-    "sha256": "de622ee77a69d72b710605bca0144d8b8f8e43a038ba4f2d28a66898d3c7cd5b",
+    "url": "https://github.com/TheSun0717/nailong/releases/download/v1.18.0/nailong-Setup-1.18.0.exe",
+    "sha256": "502126ec2b3debb291b4d86eaf65a322ee2358eedf487557751b3adb5c1485e0",
     "notes": {
-      "summary": "视频图示兜底与配音稳定性。",
+      "summary": "物理受力图与错题复习。",
       "items": [
-        "分镜无图示时自动用要点生成流程图",
-        "提示词要求至少 3 镜带图",
-        "TTS 180 秒超时与一次重试"
+        "新增 vectors 图示（力/速度向量）",
+        "错题本：随机重做、错因统计、序号移除",
+        "视频无图示时自动流程图兜底"
       ]
     },
     "mirrors": [
-      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.17.1/nailong-Setup-1.17.1.exe"
+      "https://ghproxy.net/https://github.com/TheSun0717/nailong/releases/download/v1.18.0/nailong-Setup-1.18.0.exe"
     ]
   },
   "plugins": [],
